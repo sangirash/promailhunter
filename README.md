@@ -1,1 +1,2 @@
-#ProMailHunter Website
+# ProMailHunter Website
+/opt/homebrew/var/www
