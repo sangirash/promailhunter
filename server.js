@@ -7,7 +7,7 @@ const path = require('path');
 require('dotenv').config();
 
 const { helmetConfig, corsConfig } = require('./config/security');
-const rateLimiter = require('./middleware/rateLimiter');
+const { limiter } = require('./middleware/rateLimiter');
 const apiRoutes = require('./routes/api');
 
 const app = express();
@@ -24,7 +24,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Rate limiting
-app.use(rateLimiter);
+app.use(limiter);
 
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
