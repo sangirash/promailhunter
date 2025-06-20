@@ -265,6 +265,9 @@ input[type="text"]:invalid {
     font-size: 0.9rem;
     border-left: 3px solid #667eea;
     word-break: break-all;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .email-list li:hover {
@@ -413,12 +416,7 @@ input[type="text"]:invalid {
     background-color: rgba(0, 0, 0, 0.1);
 }
 
-.email-list li {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
+/* Mobile responsive styles */
 @media (max-width: 768px) {
     .verification-stats {
         grid-template-columns: 1fr;
@@ -427,7 +425,7 @@ input[type="text"]:invalid {
     .stat-number {
         font-size: 1.5rem;
     }
-}
+    
     .container {
         padding: 15px;
         max-width: 100%;
