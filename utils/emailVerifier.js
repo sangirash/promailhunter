@@ -1,24 +1,17 @@
 // utils/emailVerifier.js
 const dns = require('dns').promises;
 const net = require('net');
-const nodemailer = require('nodemailer');
-const axios = require('axios');
+const fs = require('fs').promises;
+const path = require('path');
 
 class EmailVerifier {
   constructor() {
     this.timeout = 10000; // 10 seconds timeout
     this.smtpTimeout = 5000; // 5 seconds for SMTP
-    this.commonMxServers = new Map([
-      ['gmail.com', ['gmail-smtp-in.l.google.com']],
-      ['yahoo.com', ['mta5.am0.yahoodns.net', 'mta6.am0.yahoodns.net']],
-      ['outlook.com', ['outlook-com.olc.protection.outlook.com']],
-      ['hotmail.com', ['hotmail-com.olc.protection.outlook.com']]
-    ]);
   }
 
   /**
    * Method 1: DNS MX Record Check (Fast, Basic)
-   * Checks if the domain has valid mail exchange records
    */
   async checkMXRecord(email) {
     try {
@@ -47,7 +40,6 @@ class EmailVerifier {
 
   /**
    * Method 2: SMTP Handshake (Medium accuracy, slower)
-   * Connects to SMTP server and checks if email exists without sending
    */
   async checkSMTPHandshake(email) {
     return new Promise((resolve) => {
@@ -167,151 +159,15 @@ class EmailVerifier {
   }
 
   /**
-   * Method 3: Email Service API (High accuracy, may cost money)
-   * Uses third-party services like Hunter.io, ZeroBounce, etc.
+   * Basic email format validation
    */
-  async checkWithAPI(email, apiKey = null, service = 'hunter') {
-    try {
-      if (!apiKey) {
-        return {
-          valid: false,
-          method: 'api',
-          error: 'API key required',
-          confidence: 'high'
-        };
-      }
-
-      let response;
-      
-      switch (service.toLowerCase()) {
-        case 'hunter':
-          response = await axios.get(`https://api.hunter.io/v2/email-verifier`, {
-            params: {
-              email: email,
-              api_key: apiKey
-            },
-            timeout: this.timeout
-          });
-          
-          return {
-            valid: response.data.data.result === 'deliverable',
-            method: 'api',
-            service: 'hunter.io',
-            result: response.data.data.result,
-            score: response.data.data.score,
-            confidence: 'high'
-          };
-
-        case 'zerobounce':
-          response = await axios.get(`https://api.zerobounce.net/v2/validate`, {
-            params: {
-              api_key: apiKey,
-              email: email
-            },
-            timeout: this.timeout
-          });
-          
-          return {
-            valid: response.data.status === 'valid',
-            method: 'api',
-            service: 'zerobounce',
-            status: response.data.status,
-            confidence: 'high'
-          };
-
-        default:
-          return {
-            valid: false,
-            method: 'api',
-            error: 'Unsupported API service',
-            confidence: 'high'
-          };
-      }
-    } catch (error) {
-      return {
-        valid: false,
-        method: 'api',
-        error: error.response?.data?.message || error.message,
-        confidence: 'high'
-      };
-    }
+  validateEmailFormat(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
   }
 
   /**
-   * Method 4: Email Ping (Send actual test email)
-   * This should be used very carefully and sparingly
-   */
-  async checkWithEmailPing(email, smtpConfig) {
-    try {
-      if (!smtpConfig || !smtpConfig.host || !smtpConfig.auth) {
-        return {
-          valid: false,
-          method: 'ping',
-          error: 'SMTP configuration required',
-          confidence: 'high'
-        };
-      }
-
-      const transporter = nodemailer.createTransporter({
-        host: smtpConfig.host,
-        port: smtpConfig.port || 587,
-        secure: smtpConfig.secure || false,
-        auth: smtpConfig.auth
-      });
-
-      // Send a very small, non-intrusive test email
-      const testEmail = {
-        from: smtpConfig.auth.user,
-        to: email,
-        subject: 'Email verification test',
-        html: `
-          <div style="font-size: 10px; color: #999;">
-            This is an automated email verification test. 
-            If you received this, please ignore it.
-            <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" width="1" height="1">
-          </div>
-        `
-      };
-
-      const info = await transporter.sendMail(testEmail);
-      
-      return {
-        valid: true,
-        method: 'ping',
-        messageId: info.messageId,
-        response: info.response,
-        confidence: 'high',
-        warning: 'Email was actually sent'
-      };
-    } catch (error) {
-      // Parse different types of SMTP errors
-      const errorMessage = error.message.toLowerCase();
-      
-      if (errorMessage.includes('recipient address rejected') || 
-          errorMessage.includes('user unknown') ||
-          errorMessage.includes('mailbox unavailable') ||
-          errorMessage.includes('no such user')) {
-        return {
-          valid: false,
-          method: 'ping',
-          error: 'Email address does not exist',
-          smtpError: error.message,
-          confidence: 'high'
-        };
-      }
-      
-      return {
-        valid: false,
-        method: 'ping',
-        error: error.message,
-        confidence: 'medium',
-        uncertain: true
-      };
-    }
-  }
-
-  /**
-   * Method 5: Comprehensive verification (combines multiple methods)
+   * Comprehensive verification (combines multiple methods)
    */
   async verifyEmail(email, options = {}) {
     const results = {
@@ -327,8 +183,7 @@ class EmailVerifier {
 
     try {
       // Step 1: Basic format validation
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
+      if (!this.validateEmailFormat(email)) {
         results.finalResult.reasons.push('Invalid email format');
         return results;
       }
@@ -344,20 +199,17 @@ class EmailVerifier {
 
       // Step 3: SMTP check (if enabled)
       if (options.enableSMTP !== false) {
-        const smtpCheck = await this.checkSMTPHandshake(email);
-        results.checks.push(smtpCheck);
-      }
-
-      // Step 4: API check (if API key provided)
-      if (options.apiKey && options.apiService) {
-        const apiCheck = await this.checkWithAPI(email, options.apiKey, options.apiService);
-        results.checks.push(apiCheck);
-      }
-
-      // Step 5: Email ping (only if explicitly enabled - use carefully!)
-      if (options.enableEmailPing && options.smtpConfig) {
-        const pingCheck = await this.checkWithEmailPing(email, options.smtpConfig);
-        results.checks.push(pingCheck);
+        try {
+          const smtpCheck = await this.checkSMTPHandshake(email);
+          results.checks.push(smtpCheck);
+        } catch (error) {
+          results.checks.push({
+            valid: false,
+            method: 'smtp',
+            error: error.message,
+            confidence: 'medium'
+          });
+        }
       }
 
       // Analyze results and determine final verdict
@@ -375,12 +227,18 @@ class EmailVerifier {
    */
   async verifyEmailBatch(emails, options = {}) {
     const results = [];
-    const concurrency = options.concurrency || 5;
-    const delay = options.delay || 1000; // 1 second delay between batches
+    const concurrency = Math.min(options.concurrency || 3, 5);
+    const delay = Math.max(options.delay || 2000, 1000);
     
     for (let i = 0; i < emails.length; i += concurrency) {
       const batch = emails.slice(i, i + concurrency);
-      const batchPromises = batch.map(email => this.verifyEmail(email, options));
+      const batchPromises = batch.map(email => 
+        this.verifyEmail(email, options).catch(error => ({
+          email,
+          error: error.message,
+          finalResult: { valid: false, confidence: 'unknown', reasons: ['Verification failed'] }
+        }))
+      );
       
       const batchResults = await Promise.allSettled(batchPromises);
       
@@ -391,12 +249,12 @@ class EmailVerifier {
           results.push({
             email: batch[index],
             error: result.reason?.message || 'Unknown error',
-            finalResult: { valid: false, confidence: 'unknown' }
+            finalResult: { valid: false, confidence: 'unknown', reasons: ['Processing failed'] }
           });
         }
       });
       
-      // Add delay between batches to be respectful to servers
+      // Add delay between batches
       if (i + concurrency < emails.length) {
         await new Promise(resolve => setTimeout(resolve, delay));
       }
@@ -425,47 +283,30 @@ class EmailVerifier {
   analyzeResults(checks) {
     const validChecks = checks.filter(check => check.valid === true);
     const invalidChecks = checks.filter(check => check.valid === false);
-    const uncertainChecks = checks.filter(check => check.uncertain === true);
     
     let confidence = 'unknown';
     let valid = false;
     let reasons = [];
 
-    // High confidence checks (API, Email ping)
-    const highConfidenceChecks = checks.filter(check => check.confidence === 'high');
-    if (highConfidenceChecks.length > 0) {
-      const highConfidenceValid = highConfidenceChecks.filter(check => check.valid === true);
-      if (highConfidenceValid.length > 0) {
-        valid = true;
-        confidence = 'high';
-        reasons.push('Verified by high-confidence method');
-      } else {
-        valid = false;
-        confidence = 'high';
-        reasons.push('Rejected by high-confidence method');
-      }
-    }
-    // Medium confidence (SMTP)
-    else if (checks.some(check => check.confidence === 'medium')) {
-      const mediumChecks = checks.filter(check => check.confidence === 'medium');
-      const mediumValid = mediumChecks.filter(check => check.valid === true);
-      
-      if (mediumValid.length > 0 && invalidChecks.length === 0) {
+    // If we have SMTP results, prioritize them
+    const smtpCheck = checks.find(check => check.method === 'smtp');
+    if (smtpCheck) {
+      if (smtpCheck.valid === true) {
         valid = true;
         confidence = 'medium';
         reasons.push('SMTP verification successful');
-      } else if (mediumValid.length === 0) {
+      } else if (smtpCheck.valid === false && !smtpCheck.uncertain) {
         valid = false;
         confidence = 'medium';
         reasons.push('SMTP verification failed');
       } else {
-        valid = false;
+        // SMTP was uncertain, fall back to MX
+        valid = checks.some(check => check.method === 'mx' && check.valid);
         confidence = 'low';
-        reasons.push('Mixed results from verification methods');
+        reasons.push('SMTP uncertain, using MX record result');
       }
-    }
-    // Low confidence (MX only)
-    else {
+    } else {
+      // Only MX check available
       const mxCheck = checks.find(check => check.method === 'mx');
       if (mxCheck && mxCheck.valid) {
         valid = true;
@@ -485,8 +326,7 @@ class EmailVerifier {
       summary: {
         totalChecks: checks.length,
         validChecks: validChecks.length,
-        invalidChecks: invalidChecks.length,
-        uncertainChecks: uncertainChecks.length
+        invalidChecks: invalidChecks.length
       }
     };
   }
@@ -501,9 +341,6 @@ class EmailVerifier {
         filename = `email_verification_${timestamp}.json`;
       }
 
-      const fs = require('fs').promises;
-      const path = require('path');
-      
       const outputDir = path.join(process.cwd(), 'email_verification_results');
       
       try {

@@ -8,12 +8,6 @@ const EmailVerifier = require('../utils/emailVerifier');
 
 const router = express.Router();
 const emailGenerator = new EmailGenerator();
-const emailVerifier = new EmailVerifier();sanitizer');
-const EmailGenerator = require('../utils/emailGenerator');
-const EmailVerifier = require('../utils/emailVerifier');
-
-const router = express.Router();
-const emailGenerator = new EmailGenerator();
 const emailVerifier = new EmailVerifier();
 
 // Contact form submission endpoint (original functionality)
@@ -177,10 +171,7 @@ router.post('/verify-email',
       // Set default options
       const verificationOptions = {
         enableSMTP: options.enableSMTP !== false, // Default true
-        apiKey: options.apiKey || null,
-        apiService: options.apiService || 'hunter',
-        enableEmailPing: options.enableEmailPing === true, // Default false
-        smtpConfig: options.smtpConfig || null
+        enableEmailPing: options.enableEmailPing === true // Default false
       };
 
       const result = await emailVerifier.verifyEmail(sanitizedEmail, verificationOptions);
@@ -215,10 +206,10 @@ router.post('/verify-emails-batch',
         });
       }
 
-      if (emails.length > 100) {
+      if (emails.length > 50) {
         return res.status(400).json({
           success: false,
-          error: 'Maximum 100 emails per batch'
+          error: 'Maximum 50 emails per batch'
         });
       }
 
@@ -228,12 +219,9 @@ router.post('/verify-emails-batch',
       // Set default options
       const verificationOptions = {
         enableSMTP: options.enableSMTP !== false,
-        apiKey: options.apiKey || null,
-        apiService: options.apiService || 'hunter',
         enableEmailPing: options.enableEmailPing === true,
-        smtpConfig: options.smtpConfig || null,
-        concurrency: Math.min(options.concurrency || 5, 10), // Max 10 concurrent
-        delay: Math.max(options.delay || 1000, 500) // Min 500ms delay
+        concurrency: Math.min(options.concurrency || 3, 5), // Max 5 concurrent
+        delay: Math.max(options.delay || 2000, 1000) // Min 1000ms delay
       };
 
       const results = await emailVerifier.verifyEmailBatch(sanitizedEmails, verificationOptions);
@@ -291,7 +279,7 @@ router.post('/generate-and-verify',
 
       // Step 2: Get top emails for verification (limit to prevent overload)
       const emailsToVerify = emailResult.data.emails.all.slice(0, 
-        parseInt(req.query.limit) || 50
+        parseInt(req.query.limit) || 30
       );
 
       // Step 3: Verify emails
@@ -369,7 +357,8 @@ router.post('/generate-and-verify',
 router.get('/download-emails/:filename', (req, res) => {
   try {
     const filename = req.params.filename;
-    const filePath = require('path').join(process.cwd(), 'generated_emails', filename);
+    const path = require('path');
+    const filePath = path.join(process.cwd(), 'generated_emails', filename);
     
     // Security check - ensure filename doesn't contain path traversal
     if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
@@ -390,186 +379,10 @@ router.get('/download-emails/:filename', (req, res) => {
 router.get('/download-verification/:filename', (req, res) => {
   try {
     const filename = req.params.filename;
-    const filePath = require('path').join(process.cwd(), 'email_verification_results', filename);
+    const path = require('path');
+    const filePath = path.join(process.cwd(), 'email_verification_results', filename);
     
     // Security check
-    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
-      return res.status(400).json({ error: 'Invalid filename' });
-    }
-    
-    res.download(filePath, (err) => {
-      if (err) {
-        res.status(404).json({ error: 'File not found' });
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Download failed' });
-  }
-});
-
-// Health check endpoint
-router.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
-    timestamp: new Date().toISOString(),
-    version: '1.0.0'
-  });
-});
-
-module.exports = router;sanitizer');
-const EmailGenerator = require('../utils/emailGenerator');
-
-const router = express.Router();
-const emailGenerator = new EmailGenerator();
-
-// Contact form submission endpoint (original functionality)
-router.post('/contact', 
-  strictLimiter,
-  validateContactForm,
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      // Sanitize input data
-      const sanitizedData = sanitizer.sanitizeObject(req.body);
-      
-      // Generate emails
-      const emailResult = await emailGenerator.processContact(
-        sanitizedData.firstName,
-        sanitizedData.lastName,
-        sanitizedData.companyName,
-        true // Save to file
-      );
-      
-      // Prepare data for external API
-      const apiPayload = {
-        title: 'Contact Form Submission',
-        body: `Name: ${sanitizedData.firstName} ${sanitizedData.lastName}, Company: ${sanitizedData.companyName}`,
-        userId: 1
-      };
-
-      // Call external REST API (using JSONPlaceholder as example)
-      const apiResponse = await axios.post(
-        `${process.env.API_BASE_URL}/posts`,
-        apiPayload,
-        {
-          timeout: process.env.API_TIMEOUT || 5000,
-          headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': 'SecureContactApp/1.0'
-          }
-        }
-      );
-
-      // Return enhanced response with email data
-      const response = {
-        success: true,
-        message: 'Form submitted successfully',
-        submittedData: {
-          firstName: sanitizedData.firstName,
-          lastName: sanitizedData.lastName,
-          companyName: sanitizedData.companyName
-        },
-        apiResponse: {
-          id: apiResponse.data.id,
-          title: apiResponse.data.title,
-          status: 'submitted'
-        },
-        emailGeneration: {
-          totalEmails: emailResult.data.emails.all.length,
-          companyEmails: emailResult.data.emails.company.length,
-          commonProviderEmails: emailResult.data.emails.commonProviders.length,
-          totalDomains: emailResult.data.domains.all.length,
-          fileSaved: emailResult.file ? emailResult.file.filename : null
-        }
-      };
-
-      res.json(response);
-
-    } catch (error) {
-      console.error('API Error:', error.message);
-      
-      // Don't expose internal error details
-      res.status(500).json({
-        success: false,
-        error: 'Failed to process your request. Please try again later.',
-        code: 'API_ERROR'
-      });
-    }
-  }
-);
-
-// New endpoint specifically for email generation
-router.post('/generate-emails',
-  strictLimiter,
-  validateContactForm,
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      const sanitizedData = sanitizer.sanitizeObject(req.body);
-      
-      const emailResult = await emailGenerator.processContact(
-        sanitizedData.firstName,
-        sanitizedData.lastName,
-        sanitizedData.companyName,
-        req.query.save !== 'false' // Save to file by default, unless ?save=false
-      );
-
-      res.json({
-        success: true,
-        message: 'Email combinations generated successfully',
-        data: emailResult.data,
-        file: emailResult.file
-      });
-
-    } catch (error) {
-      console.error('Email Generation Error:', error.message);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to generate email combinations',
-        code: 'EMAIL_GENERATION_ERROR'
-      });
-    }
-  }
-);
-
-// Endpoint to get just the email list (simple format)
-router.post('/emails-simple',
-  strictLimiter,
-  validateContactForm,
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      const sanitizedData = sanitizer.sanitizeObject(req.body);
-      
-      const emails = emailGenerator.generateEmails(
-        sanitizedData.firstName,
-        sanitizedData.lastName,
-        sanitizedData.companyName
-      );
-
-      // Simple format as requested in the original question
-      res.json({
-        emails: emails
-      });
-
-    } catch (error) {
-      console.error('Simple Email Generation Error:', error.message);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to generate email list',
-        code: 'SIMPLE_EMAIL_ERROR'
-      });
-    }
-  }
-);
-
-// Endpoint to download generated email file
-router.get('/download-emails/:filename', (req, res) => {
-  try {
-    const filename = req.params.filename;
-    const filePath = require('path').join(process.cwd(), 'generated_emails', filename);
-    
-    // Security check - ensure filename doesn't contain path traversal
     if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
       return res.status(400).json({ error: 'Invalid filename' });
     }

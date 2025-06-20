@@ -128,12 +128,12 @@ class SecureContactForm {
                 this.showSuccess(result);
                 this.form.reset();
             } else {
-                this.showError(result.error || 'An error occurred');
+                this.showErrorMessage(result.error || 'An error occurred');
             }
 
         } catch (error) {
             console.error('Submission error:', error);
-            this.showError('Network error. Please check your connection and try again.');
+            this.showErrorMessage('Network error. Please check your connection and try again.');
         } finally {
             this.setLoading(false);
         }
@@ -166,16 +166,18 @@ class SecureContactForm {
             if (response.ok && result.success) {
                 this.showEmailResults(result);
             } else {
-                this.showError(result.error || 'An error occurred generating emails');
+                this.showErrorMessage(result.error || 'An error occurred generating emails');
             }
 
         } catch (error) {
             console.error('Email generation error:', error);
-            this.showError('Network error. Please check your connection and try again.');
+            this.showErrorMessage('Network error. Please check your connection and try again.');
         } finally {
             this.setEmailLoading(false);
         }
     }
+
+    async handleGenerateAndVerify(e) {
         e.preventDefault();
         
         if (!this.validateForm()) {
@@ -211,50 +213,14 @@ class SecureContactForm {
             if (response.ok && result.success) {
                 this.showVerificationResults(result);
             } else {
-                this.showError(result.error || 'An error occurred during email verification');
+                this.showErrorMessage(result.error || 'An error occurred during email verification');
             }
 
         } catch (error) {
             console.error('Email verification error:', error);
-            this.showError('Network error. Please check your connection and try again.');
+            this.showErrorMessage('Network error. Please check your connection and try again.');
         } finally {
             this.setVerifyLoading(false);
-        }
-    }
-        e.preventDefault();
-        
-        if (!this.validateForm()) {
-            return;
-        }
-
-        this.setEmailLoading(true);
-        this.hideResult();
-
-        try {
-            const formData = new FormData(this.form);
-            const data = Object.fromEntries(formData.entries());
-
-            const response = await fetch('/api/generate-emails', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data)
-            });
-
-            const result = await response.json();
-
-            if (response.ok && result.success) {
-                this.showEmailResults(result);
-            } else {
-                this.showError(result.error || 'An error occurred generating emails');
-            }
-
-        } catch (error) {
-            console.error('Email generation error:', error);
-            this.showError('Network error. Please check your connection and try again.');
-        } finally {
-            this.setEmailLoading(false);
         }
     }
 
@@ -284,93 +250,11 @@ class SecureContactForm {
         }
     }
 
-    createEmailList(emails, title, showCopyButton = false) {
-        if (!emails || emails.length === 0) return '';
-        
-        const emailItems = emails.slice(0, 20).map(email => 
-            `<li>${this.escapeHtml(email)} ${showCopyButton ? `<button class="copy-single-btn" onclick="navigator.clipboard.writeText('${email}')" title="Copy email">📋</button>` : ''}</li>`
-        ).join('');
-        
-        return `
-            <div class="email-category ${showCopyButton ? 'verified-emails' : ''}">
-                <h4>${title} (${emails.length})</h4>
-                <ul class="email-list">
-                    ${emailItems}
-                </ul>
-                ${emails.length > 20 ? `<p><em>... and ${emails.length - 20} more</em></p>` : ''}
-            </div>
-        `;
-    }
+    setVerifyLoading(loading) {
         const verifyBtn = document.querySelector('.verify-btn');
         if (verifyBtn) {
             verifyBtn.disabled = loading;
             verifyBtn.classList.toggle('loading', loading);
-        }
-    }
-
-    showVerificationResults(result) {
-        this.resultContainer.className = 'result-container success';
-        
-        let downloadLink = '';
-        if (result.file && result.file.filename) {
-            downloadLink = `
-                <div class="download-section">
-                    <a href="/api/download-verification/${result.file.filename}" 
-                       class="download-btn" 
-                       download="${result.file.filename}">
-                        📥 Download Verification Results
-                    </a>
-                </div>
-            `;
-        }
-
-        const validEmailsList = this.createEmailList(result.validEmails, 'Valid Emails (Verified)', true);
-        
-        this.resultContent.innerHTML = `
-            <p><strong>✅ Email Generation & Verification Complete!</strong></p>
-            <div class="result-data">
-                <p><strong>Total Emails Checked:</strong> ${result.summary.total}</p>
-                <p><strong>✅ Valid:</strong> ${result.summary.valid}</p>
-                <p><strong>❌ Invalid:</strong> ${result.summary.invalid}</p>
-                <p><strong>❓ Uncertain:</strong> ${result.summary.uncertain}</p>
-                <p><strong>Success Rate:</strong> ${((result.summary.valid / result.summary.total) * 100).toFixed(1)}%</p>
-            </div>
-            
-            ${downloadLink}
-            
-            <div class="verification-summary">
-                <div class="verification-stats">
-                    <div class="stat-card valid">
-                        <h4>✅ Valid Emails</h4>
-                        <div class="stat-number">${result.summary.valid}</div>
-                    </div>
-                    <div class="stat-card invalid">
-                        <h4>❌ Invalid Emails</h4>
-                        <div class="stat-number">${result.summary.invalid}</div>
-                    </div>
-                    <div class="stat-card uncertain">
-                        <h4>❓ Uncertain</h4>
-                        <div class="stat-number">${result.summary.uncertain}</div>
-                    </div>
-                </div>
-            </div>
-            
-            ${validEmailsList}
-            
-            ${result.validEmails.length > 0 ? `
-                <div class="copy-section">
-                    <button class="copy-btn" onclick="navigator.clipboard.writeText('${result.validEmails.join(', ')}')">
-                        📋 Copy Valid Emails
-                    </button>
-                </div>
-            ` : ''}
-        `;
-        this.resultContainer.classList.remove('hidden');
-    }
-        const emailBtn = document.querySelector('.email-btn');
-        if (emailBtn) {
-            emailBtn.disabled = loading;
-            emailBtn.classList.toggle('loading', loading);
         }
     }
 
@@ -450,25 +334,85 @@ class SecureContactForm {
         this.resultContainer.classList.remove('hidden');
     }
 
-    createEmailList(emails, title) {
-        if (emails.length === 0) return '';
+    showVerificationResults(result) {
+        this.resultContainer.className = 'result-container success';
         
-        const emailItems = emails.slice(0, 10).map(email => 
-            `<li>${this.escapeHtml(email)}</li>`
+        let downloadLink = '';
+        if (result.file && result.file.filename) {
+            downloadLink = `
+                <div class="download-section">
+                    <a href="/api/download-verification/${result.file.filename}" 
+                       class="download-btn" 
+                       download="${result.file.filename}">
+                        📥 Download Verification Results
+                    </a>
+                </div>
+            `;
+        }
+
+        const validEmailsList = this.createEmailList(result.validEmails || [], 'Valid Emails (Verified)', true);
+        
+        this.resultContent.innerHTML = `
+            <p><strong>✅ Email Generation & Verification Complete!</strong></p>
+            <div class="result-data">
+                <p><strong>Total Emails Checked:</strong> ${result.summary.total}</p>
+                <p><strong>✅ Valid:</strong> ${result.summary.valid}</p>
+                <p><strong>❌ Invalid:</strong> ${result.summary.invalid}</p>
+                <p><strong>❓ Uncertain:</strong> ${result.summary.uncertain}</p>
+                <p><strong>Success Rate:</strong> ${result.summary.total > 0 ? ((result.summary.valid / result.summary.total) * 100).toFixed(1) : 0}%</p>
+            </div>
+            
+            ${downloadLink}
+            
+            <div class="verification-summary">
+                <div class="verification-stats">
+                    <div class="stat-card valid">
+                        <h4>✅ Valid Emails</h4>
+                        <div class="stat-number">${result.summary.valid}</div>
+                    </div>
+                    <div class="stat-card invalid">
+                        <h4>❌ Invalid Emails</h4>
+                        <div class="stat-number">${result.summary.invalid}</div>
+                    </div>
+                    <div class="stat-card uncertain">
+                        <h4>❓ Uncertain</h4>
+                        <div class="stat-number">${result.summary.uncertain}</div>
+                    </div>
+                </div>
+            </div>
+            
+            ${validEmailsList}
+            
+            ${result.validEmails && result.validEmails.length > 0 ? `
+                <div class="copy-section">
+                    <button class="copy-btn" onclick="navigator.clipboard.writeText('${result.validEmails.join(', ')}')">
+                        📋 Copy Valid Emails
+                    </button>
+                </div>
+            ` : ''}
+        `;
+        this.resultContainer.classList.remove('hidden');
+    }
+
+    createEmailList(emails, title, showCopyButton = false) {
+        if (!emails || emails.length === 0) return '';
+        
+        const emailItems = emails.slice(0, 20).map(email => 
+            `<li>${this.escapeHtml(email)} ${showCopyButton ? `<button class="copy-single-btn" onclick="navigator.clipboard.writeText('${email}')" title="Copy email">📋</button>` : ''}</li>`
         ).join('');
         
         return `
-            <div class="email-category">
+            <div class="email-category ${showCopyButton ? 'verified-emails' : ''}">
                 <h4>${title} (${emails.length})</h4>
                 <ul class="email-list">
                     ${emailItems}
                 </ul>
-                ${emails.length > 10 ? `<p><em>... and ${emails.length - 10} more</em></p>` : ''}
+                ${emails.length > 20 ? `<p><em>... and ${emails.length - 20} more</em></p>` : ''}
             </div>
         `;
     }
 
-    showError(message) {
+    showErrorMessage(message) {
         this.resultContainer.className = 'result-container error';
         this.resultContent.innerHTML = `
             <p><strong>❌ Error:</strong> ${this.escapeHtml(message)}</p>
@@ -481,6 +425,7 @@ class SecureContactForm {
     }
 
     escapeHtml(text) {
+        if (!text) return '';
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
