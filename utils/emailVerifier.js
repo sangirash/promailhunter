@@ -7,11 +7,91 @@ const path = require('path');
 class EmailVerifier {
   constructor() {
     this.timeout = 10000; // 10 seconds timeout
-    this.smtpTimeout = 5000; // 5 seconds for SMTP
+    this.smtpTimeout = 8000; // 8 seconds for SMTP (increased from 5)
+    
+    // Known corporate domains that typically block SMTP verification
+    this.corporateDomainsWithStrictSecurity = [
+      'microsoft.com', 'google.com', 'apple.com', 'amazon.com', 'facebook.com',
+      'ukg.com', 'salesforce.com', 'oracle.com', 'sap.com', 'workday.com',
+      'paypal.com', 'netflix.com', 'adobe.com', 'vmware.com', 'citrix.com'
+    ];
+    
+    // Known email patterns for major companies
+    this.knownValidPatterns = {
+      'ukg.com': ['first.last', 'first', 'last', 'firstlast', 'first_last'],
+      'microsoft.com': ['first.last', 'first', 'firstlast'],
+      'google.com': ['first.last', 'first', 'firstlast'],
+      'apple.com': ['first.last', 'first', 'firstlast'],
+      'amazon.com': ['first.last', 'first', 'firstlast']
+    };
   }
 
   /**
-   * Method 1: DNS MX Record Check (Fast, Basic)
+   * Enhanced email format validation with pattern recognition
+   */
+  validateEmailFormat(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) return false;
+    
+    const [username, domain] = email.split('@');
+    
+    // Additional checks
+    if (username.length < 1 || username.length > 64) return false;
+    if (domain.length < 4 || domain.length > 255) return false;
+    
+    return true;
+  }
+
+  /**
+   * Check if email pattern matches known corporate patterns
+   */
+  checkAgainstKnownPatterns(email) {
+    const [username, domain] = email.split('@');
+    const lowerDomain = domain.toLowerCase();
+    
+    if (!this.knownValidPatterns[lowerDomain]) {
+      return { isKnownPattern: false, confidence: 'unknown' };
+    }
+    
+    const patterns = this.knownValidPatterns[lowerDomain];
+    const lowerUsername = username.toLowerCase();
+    
+    // Check if username matches known patterns
+    for (const pattern of patterns) {
+      switch (pattern) {
+        case 'first.last':
+          if (/^[a-z]+\.[a-z]+$/.test(lowerUsername)) {
+            return { isKnownPattern: true, confidence: 'high', pattern: 'first.last' };
+          }
+          break;
+        case 'first_last':
+          if (/^[a-z]+_[a-z]+$/.test(lowerUsername)) {
+            return { isKnownPattern: true, confidence: 'high', pattern: 'first_last' };
+          }
+          break;
+        case 'firstlast':
+          if (/^[a-z]{4,}$/.test(lowerUsername) && lowerUsername.length >= 6) {
+            return { isKnownPattern: true, confidence: 'medium', pattern: 'firstlast' };
+          }
+          break;
+        case 'first':
+          if (/^[a-z]{2,}$/.test(lowerUsername) && lowerUsername.length <= 10) {
+            return { isKnownPattern: true, confidence: 'medium', pattern: 'first' };
+          }
+          break;
+        case 'last':
+          if (/^[a-z]{2,}$/.test(lowerUsername) && lowerUsername.length <= 15) {
+            return { isKnownPattern: true, confidence: 'medium', pattern: 'last' };
+          }
+          break;
+      }
+    }
+    
+    return { isKnownPattern: false, confidence: 'low' };
+  }
+
+  /**
+   * Method 1: DNS MX Record Check (Enhanced)
    */
   async checkMXRecord(email) {
     try {
@@ -39,17 +119,31 @@ class EmailVerifier {
   }
 
   /**
-   * Method 2: SMTP Handshake (Medium accuracy, slower)
+   * Method 2: Enhanced SMTP Handshake with better corporate handling
    */
   async checkSMTPHandshake(email) {
+    const domain = email.split('@')[1];
+    const lowerDomain = domain.toLowerCase();
+    
+    // Check if this is a known corporate domain that blocks verification
+    if (this.corporateDomainsWithStrictSecurity.includes(lowerDomain)) {
+      return {
+        valid: false,
+        method: 'smtp',
+        error: 'Corporate domain blocks SMTP verification',
+        confidence: 'unknown',
+        corporateBlocked: true,
+        note: 'This corporate domain typically blocks automated verification attempts'
+      };
+    }
+
     return new Promise((resolve) => {
-      const domain = email.split('@')[1];
       const timeout = setTimeout(() => {
         resolve({
           valid: false,
           method: 'smtp',
           error: 'Timeout',
-          confidence: 'medium'
+          confidence: 'unknown'
         });
       }, this.smtpTimeout);
 
@@ -112,14 +206,22 @@ class EmailVerifier {
               case 3: // RCPT TO response
                 if (response.includes('250')) {
                   result.valid = true;
+                  result.confidence = 'high';
                   result.smtpResponse = response.trim();
                 } else if (response.includes('550') || response.includes('551') || response.includes('553')) {
                   result.valid = false;
+                  result.confidence = 'high';
                   result.smtpResponse = response.trim();
+                } else if (response.includes('421') || response.includes('450') || response.includes('451')) {
+                  // Temporary failure - could be rate limiting
+                  result.valid = false;
+                  result.confidence = 'unknown';
+                  result.smtpResponse = response.trim();
+                  result.temporary = true;
                 } else {
                   result.valid = false;
+                  result.confidence = 'unknown';
                   result.smtpResponse = response.trim();
-                  result.uncertain = true;
                 }
                 client.write('QUIT\r\n');
                 step = 4;
@@ -133,11 +235,15 @@ class EmailVerifier {
 
           client.on('error', (err) => {
             result.error = err.message;
+            if (err.code === 'ECONNREFUSED') {
+              result.note = 'SMTP server refused connection (may block verification)';
+            }
             client.destroy();
           });
 
           client.on('timeout', () => {
             result.error = 'SMTP timeout';
+            result.note = 'Server may be blocking automated verification';
             client.destroy();
           });
 
@@ -159,15 +265,7 @@ class EmailVerifier {
   }
 
   /**
-   * Basic email format validation
-   */
-  validateEmailFormat(email) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  }
-
-  /**
-   * Comprehensive verification (combines multiple methods)
+   * Enhanced comprehensive verification with better corporate domain handling
    */
   async verifyEmail(email, options = {}) {
     const results = {
@@ -188,17 +286,32 @@ class EmailVerifier {
         return results;
       }
 
-      // Step 2: MX Record check (always do this first)
+      // Step 2: Check against known patterns for corporate domains
+      const patternCheck = this.checkAgainstKnownPatterns(email);
+      if (patternCheck.isKnownPattern) {
+        results.checks.push({
+          valid: true,
+          method: 'pattern',
+          confidence: patternCheck.confidence,
+          pattern: patternCheck.pattern,
+          note: 'Matches known corporate email pattern'
+        });
+      }
+
+      // Step 3: MX Record check (always do this)
       const mxCheck = await this.checkMXRecord(email);
       results.checks.push(mxCheck);
       
       if (!mxCheck.valid) {
-        results.finalResult.reasons.push('No MX record found');
+        results.finalResult.reasons.push('No MX record found for domain');
         return results;
       }
 
-      // Step 3: SMTP check (if enabled)
-      if (options.enableSMTP !== false) {
+      // Step 4: SMTP check (if enabled and not a blocking corporate domain)
+      const domain = email.split('@')[1].toLowerCase();
+      const isCorporateDomain = this.corporateDomainsWithStrictSecurity.includes(domain);
+      
+      if (options.enableSMTP !== false && !isCorporateDomain) {
         try {
           const smtpCheck = await this.checkSMTPHandshake(email);
           results.checks.push(smtpCheck);
@@ -207,13 +320,21 @@ class EmailVerifier {
             valid: false,
             method: 'smtp',
             error: error.message,
-            confidence: 'medium'
+            confidence: 'unknown'
           });
         }
+      } else if (isCorporateDomain) {
+        results.checks.push({
+          valid: false,
+          method: 'smtp',
+          error: 'Skipped - Corporate domain blocks verification',
+          confidence: 'unknown',
+          note: 'Corporate domains typically block SMTP verification for security'
+        });
       }
 
       // Analyze results and determine final verdict
-      results.finalResult = this.analyzeResults(results.checks);
+      results.finalResult = this.analyzeResultsEnhanced(results.checks, email, patternCheck);
       
       return results;
     } catch (error) {
@@ -223,15 +344,96 @@ class EmailVerifier {
   }
 
   /**
-   * Verify multiple emails in batch
+   * Enhanced result analysis with corporate domain intelligence
+   */
+  analyzeResultsEnhanced(checks, email, patternCheck) {
+    const domain = email.split('@')[1].toLowerCase();
+    const isCorporateDomain = this.corporateDomainsWithStrictSecurity.includes(domain);
+    
+    const mxCheck = checks.find(check => check.method === 'mx');
+    const smtpCheck = checks.find(check => check.method === 'smtp');
+    const patternCheckResult = checks.find(check => check.method === 'pattern');
+    
+    let confidence = 'unknown';
+    let valid = false;
+    let reasons = [];
+
+    // If domain has MX records, it can receive emails
+    if (mxCheck && mxCheck.valid) {
+      // For corporate domains with known patterns
+      if (isCorporateDomain && patternCheck.isKnownPattern) {
+        valid = true;
+        confidence = patternCheck.confidence;
+        reasons.push(`Corporate domain with valid MX records and known email pattern (${patternCheck.pattern})`);
+        
+        // Boost confidence for high-confidence patterns
+        if (patternCheck.confidence === 'high') {
+          confidence = 'high';
+        }
+      }
+      // For corporate domains without known patterns
+      else if (isCorporateDomain) {
+        valid = true;
+        confidence = 'medium';
+        reasons.push('Corporate domain with valid MX records (SMTP verification blocked by security policy)');
+      }
+      // For non-corporate domains, use SMTP results if available
+      else if (smtpCheck) {
+        if (smtpCheck.valid === true) {
+          valid = true;
+          confidence = 'high';
+          reasons.push('SMTP verification successful');
+        } else if (smtpCheck.valid === false && !smtpCheck.temporary) {
+          valid = false;
+          confidence = 'high';
+          reasons.push('SMTP verification failed');
+        } else {
+          valid = true;
+          confidence = 'medium';
+          reasons.push('Domain accepts email (MX record exists), SMTP verification inconclusive');
+        }
+      }
+      // Fallback: domain has MX records
+      else {
+        valid = true;
+        confidence = 'medium';
+        reasons.push('Domain accepts email (MX record exists)');
+      }
+    } else {
+      valid = false;
+      confidence = 'high';
+      reasons.push('Domain does not accept email (no MX records)');
+    }
+
+    return {
+      valid,
+      confidence,
+      reasons,
+      corporateDomain: isCorporateDomain,
+      patternMatch: patternCheck.isKnownPattern ? patternCheck.pattern : null,
+      summary: {
+        totalChecks: checks.length,
+        mxValid: mxCheck?.valid || false,
+        smtpValid: smtpCheck?.valid || false,
+        patternValid: patternCheckResult?.valid || false
+      }
+    };
+  }
+
+  /**
+   * Verify multiple emails in batch with enhanced corporate handling
    */
   async verifyEmailBatch(emails, options = {}) {
     const results = [];
-    const concurrency = Math.min(options.concurrency || 3, 5);
-    const delay = Math.max(options.delay || 2000, 1000);
+    const concurrency = Math.min(options.concurrency || 2, 3); // Reduced concurrency for better reliability
+    const delay = Math.max(options.delay || 3000, 2000); // Increased delay
+    
+    console.log(`Starting batch verification of ${emails.length} emails...`);
     
     for (let i = 0; i < emails.length; i += concurrency) {
       const batch = emails.slice(i, i + concurrency);
+      console.log(`Processing batch ${Math.floor(i/concurrency) + 1}/${Math.ceil(emails.length/concurrency)} (${batch.length} emails)`);
+      
       const batchPromises = batch.map(email => 
         this.verifyEmail(email, options).catch(error => ({
           email,
@@ -254,13 +456,23 @@ class EmailVerifier {
         }
       });
       
-      // Add delay between batches
+      // Add delay between batches (longer for corporate domains)
       if (i + concurrency < emails.length) {
-        await new Promise(resolve => setTimeout(resolve, delay));
+        const hasCorporateDomains = batch.some(email => {
+          const domain = email.split('@')[1]?.toLowerCase();
+          return this.corporateDomainsWithStrictSecurity.includes(domain);
+        });
+        
+        const delayTime = hasCorporateDomains ? delay * 1.5 : delay;
+        console.log(`Waiting ${delayTime/1000}s before next batch...`);
+        await new Promise(resolve => setTimeout(resolve, delayTime));
       }
-      
-      console.log(`Verified batch ${Math.floor(i/concurrency) + 1}/${Math.ceil(emails.length/concurrency)}`);
     }
+    
+    // Log summary
+    const validCount = results.filter(r => r.finalResult?.valid === true).length;
+    const corporateCount = results.filter(r => r.finalResult?.corporateDomain === true).length;
+    console.log(`Batch verification complete: ${validCount}/${emails.length} valid, ${corporateCount} corporate domains`);
     
     return results;
   }
@@ -278,60 +490,6 @@ class EmailVerifier {
   }
 
   /**
-   * Analyze multiple check results to determine final verdict
-   */
-  analyzeResults(checks) {
-    const validChecks = checks.filter(check => check.valid === true);
-    const invalidChecks = checks.filter(check => check.valid === false);
-    
-    let confidence = 'unknown';
-    let valid = false;
-    let reasons = [];
-
-    // If we have SMTP results, prioritize them
-    const smtpCheck = checks.find(check => check.method === 'smtp');
-    if (smtpCheck) {
-      if (smtpCheck.valid === true) {
-        valid = true;
-        confidence = 'medium';
-        reasons.push('SMTP verification successful');
-      } else if (smtpCheck.valid === false && !smtpCheck.uncertain) {
-        valid = false;
-        confidence = 'medium';
-        reasons.push('SMTP verification failed');
-      } else {
-        // SMTP was uncertain, fall back to MX
-        valid = checks.some(check => check.method === 'mx' && check.valid);
-        confidence = 'low';
-        reasons.push('SMTP uncertain, using MX record result');
-      }
-    } else {
-      // Only MX check available
-      const mxCheck = checks.find(check => check.method === 'mx');
-      if (mxCheck && mxCheck.valid) {
-        valid = true;
-        confidence = 'low';
-        reasons.push('Domain accepts email (MX record exists)');
-      } else {
-        valid = false;
-        confidence = 'low';
-        reasons.push('Domain does not accept email');
-      }
-    }
-
-    return {
-      valid,
-      confidence,
-      reasons,
-      summary: {
-        totalChecks: checks.length,
-        validChecks: validChecks.length,
-        invalidChecks: invalidChecks.length
-      }
-    };
-  }
-
-  /**
    * Save verification results to file
    */
   async saveResults(results, filename = null) {
@@ -343,11 +501,7 @@ class EmailVerifier {
 
       const outputDir = path.join(process.cwd(), 'email_verification_results');
       
-      try {
-        await fs.access(outputDir);
-      } catch {
-        await fs.mkdir(outputDir, { recursive: true });
-      }
+      await fs.mkdir(outputDir, { recursive: true });
       
       const filePath = path.join(outputDir, filename);
       await fs.writeFile(filePath, JSON.stringify(results, null, 2), 'utf8');

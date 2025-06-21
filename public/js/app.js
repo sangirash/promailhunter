@@ -16,7 +16,6 @@ class SecureContactForm {
     }
 
     addEmailGenerationButton() {
-        // Add a button for email generation only
         const emailBtn = document.createElement('button');
         emailBtn.type = 'button';
         emailBtn.className = 'email-btn';
@@ -26,12 +25,10 @@ class SecureContactForm {
         `;
         emailBtn.addEventListener('click', this.handleEmailGeneration.bind(this));
         
-        // Insert after submit button
         this.submitBtn.parentNode.insertBefore(emailBtn, this.submitBtn.nextSibling);
     }
 
     addEmailVerificationButton() {
-        // Add a button for generate and verify
         const verifyBtn = document.createElement('button');
         verifyBtn.type = 'button';
         verifyBtn.className = 'verify-btn';
@@ -41,7 +38,6 @@ class SecureContactForm {
         `;
         verifyBtn.addEventListener('click', this.handleGenerateAndVerify.bind(this));
         
-        // Insert after email generation button
         const emailBtn = document.querySelector('.email-btn');
         emailBtn.parentNode.insertBefore(verifyBtn, emailBtn.nextSibling);
     }
@@ -61,7 +57,6 @@ class SecureContactForm {
         let isValid = true;
         let errorMessage = '';
 
-        // Basic validation
         if (!value) {
             isValid = false;
             errorMessage = 'This field is required';
@@ -70,7 +65,6 @@ class SecureContactForm {
             errorMessage = `Maximum ${input.maxLength} characters allowed`;
         }
 
-        // Field-specific validation
         switch(fieldName) {
             case 'firstName':
             case 'lastName':
@@ -109,6 +103,9 @@ class SecureContactForm {
 
         this.setLoading(true);
         this.hideResult();
+
+        // Show progress for verification
+        this.showSubmitProgress();
 
         try {
             const formData = new FormData(this.form);
@@ -187,16 +184,18 @@ class SecureContactForm {
         this.setVerifyLoading(true);
         this.hideResult();
 
+        // Show progress indicator
+        this.showVerificationProgress();
+
         try {
             const formData = new FormData(this.form);
             const data = Object.fromEntries(formData.entries());
 
-            // Add verification options
             const requestBody = {
                 ...data,
                 verificationOptions: {
                     enableSMTP: true,
-                    enableEmailPing: false // Never enable email ping by default
+                    enableEmailPing: false
                 }
             };
 
@@ -258,9 +257,54 @@ class SecureContactForm {
         }
     }
 
+    showSubmitProgress() {
+        this.resultContainer.className = 'result-container';
+        this.resultContent.innerHTML = `
+            <div class="verification-progress">
+                <h3>📤 Processing Your Submission...</h3>
+                <div class="progress-info">
+                    <p>Generating and verifying email addresses for your company.</p>
+                    <p>This may take 30-60 seconds depending on email server responses.</p>
+                    <div class="progress-animation">
+                        <div class="progress-dot"></div>
+                        <div class="progress-dot"></div>
+                        <div class="progress-dot"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+        this.resultContainer.classList.remove('hidden');
+    }
+
+    showVerificationProgress() {
+        this.resultContainer.className = 'result-container';
+        this.resultContent.innerHTML = `
+            <div class="verification-progress">
+                <h3>🔍 Verifying Email Addresses...</h3>
+                <div class="progress-info">
+                    <p>This may take 30-60 seconds depending on email server responses.</p>
+                    <div class="progress-animation">
+                        <div class="progress-dot"></div>
+                        <div class="progress-dot"></div>
+                        <div class="progress-dot"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+        this.resultContainer.classList.remove('hidden');
+    }
+
     showSuccess(result) {
         this.resultContainer.className = 'result-container success';
         
+        // Check if this is a verification result (has validEmails) or just submission
+        if (result.validEmails !== undefined && result.summary) {
+            // This is a verification result - show the enhanced verification UI
+            this.showVerificationResults(result);
+            return;
+        }
+        
+        // This is a basic submission result
         let emailInfo = '';
         if (result.emailGeneration) {
             emailInfo = `
@@ -292,8 +336,8 @@ class SecureContactForm {
         this.resultContainer.className = 'result-container success';
         
         const data = result.data;
-        const companyEmailsHtml = this.createEmailList(data.emails.company, 'Company Emails');
-        const commonProviderEmailsHtml = this.createEmailList(data.emails.commonProviders, 'Common Provider Emails');
+        const companyEmailsHtml = this.createEmailList(data.emails.company, 'Company Emails', false);
+        const commonProviderEmailsHtml = this.createEmailList(data.emails.commonProviders, 'Common Provider Emails', false);
         
         let downloadLink = '';
         if (result.file && result.file.filename) {
@@ -350,48 +394,156 @@ class SecureContactForm {
             `;
         }
 
-        const validEmailsList = this.createEmailList(result.validEmails || [], 'Valid Emails (Verified)', true);
+        // Enhanced verified emails display
+        const verifiedEmailsHtml = this.createVerifiedEmailsList(result.validEmails || []);
+        const verificationStatsHtml = this.createVerificationStats(result.summary);
         
         this.resultContent.innerHTML = `
-            <p><strong>✅ Email Generation & Verification Complete!</strong></p>
+            <div class="verification-header">
+                <h3>✅ Email Verification Complete!</h3>
+                <div class="verification-summary-quick">
+                    <span class="quick-stat valid">✅ ${result.summary.valid} Valid</span>
+                    <span class="quick-stat invalid">❌ ${result.summary.invalid} Invalid</span>
+                    <span class="quick-stat uncertain">❓ ${result.summary.uncertain} Uncertain</span>
+                </div>
+            </div>
+            
             <div class="result-data">
                 <p><strong>Total Emails Checked:</strong> ${result.summary.total}</p>
-                <p><strong>✅ Valid:</strong> ${result.summary.valid}</p>
-                <p><strong>❌ Invalid:</strong> ${result.summary.invalid}</p>
-                <p><strong>❓ Uncertain:</strong> ${result.summary.uncertain}</p>
                 <p><strong>Success Rate:</strong> ${result.summary.total > 0 ? ((result.summary.valid / result.summary.total) * 100).toFixed(1) : 0}%</p>
+                <p><strong>Verification Time:</strong> ${new Date().toLocaleString()}</p>
             </div>
             
             ${downloadLink}
             
+            ${verificationStatsHtml}
+            
+            ${verifiedEmailsHtml}
+            
+            ${result.validEmails && result.validEmails.length > 0 ? this.createCopySection(result.validEmails) : ''}
+            
+            ${result.validEmails && result.validEmails.length > 0 ? this.createExportSection(result.validEmails) : ''}
+        `;
+        this.resultContainer.classList.remove('hidden');
+    }
+
+    createVerificationStats(summary) {
+        return `
             <div class="verification-summary">
+                <h4>📊 Verification Statistics</h4>
                 <div class="verification-stats">
                     <div class="stat-card valid">
                         <h4>✅ Valid Emails</h4>
-                        <div class="stat-number">${result.summary.valid}</div>
+                        <div class="stat-number">${summary.valid}</div>
+                        <div class="stat-percentage">${summary.total > 0 ? ((summary.valid / summary.total) * 100).toFixed(1) : 0}%</div>
                     </div>
                     <div class="stat-card invalid">
                         <h4>❌ Invalid Emails</h4>
-                        <div class="stat-number">${result.summary.invalid}</div>
+                        <div class="stat-number">${summary.invalid}</div>
+                        <div class="stat-percentage">${summary.total > 0 ? ((summary.invalid / summary.total) * 100).toFixed(1) : 0}%</div>
                     </div>
                     <div class="stat-card uncertain">
                         <h4>❓ Uncertain</h4>
-                        <div class="stat-number">${result.summary.uncertain}</div>
+                        <div class="stat-number">${summary.uncertain}</div>
+                        <div class="stat-percentage">${summary.total > 0 ? ((summary.uncertain / summary.total) * 100).toFixed(1) : 0}%</div>
                     </div>
                 </div>
             </div>
-            
-            ${validEmailsList}
-            
-            ${result.validEmails && result.validEmails.length > 0 ? `
-                <div class="copy-section">
-                    <button class="copy-btn" onclick="navigator.clipboard.writeText('${result.validEmails.join(', ')}')">
-                        📋 Copy Valid Emails
+        `;
+    }
+
+    createVerifiedEmailsList(validEmails) {
+        if (!validEmails || validEmails.length === 0) {
+            return `
+                <div class="verified-emails-section">
+                    <h4>📧 Verified Email Addresses</h4>
+                    <div class="no-results">
+                        <p>No valid email addresses were found during verification.</p>
+                        <p>This could mean:</p>
+                        <ul>
+                            <li>The email servers are temporarily unavailable</li>
+                            <li>The company uses strict email filtering</li>
+                            <li>The generated email patterns don't match the company's format</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+        }
+
+        const emailItems = validEmails.map((email, index) => `
+            <div class="verified-email-item" data-email="${email}">
+                <div class="email-info">
+                    <span class="email-address">${this.escapeHtml(email)}</span>
+                    <span class="email-status">✅ Verified</span>
+                </div>
+                <div class="email-actions">
+                    <button class="copy-single-btn" onclick="copyToClipboard('${email}', 'Email copied!')" title="Copy email">
+                        📋 Copy
+                    </button>
+                    <button class="compose-btn" onclick="window.open('mailto:${email}', '_blank')" title="Compose email">
+                        ✉️ Email
                     </button>
                 </div>
-            ` : ''}
+            </div>
+        `).join('');
+
+        return `
+            <div class="verified-emails-section">
+                <h4>📧 Verified Email Addresses (${validEmails.length})</h4>
+                <div class="verified-emails-container">
+                    ${emailItems}
+                </div>
+                ${validEmails.length > 10 ? `
+                    <div class="show-more-section">
+                        <button class="show-more-btn" onclick="this.parentElement.parentElement.querySelector('.verified-emails-container').classList.toggle('show-all')">
+                            Show All ${validEmails.length} Emails
+                        </button>
+                    </div>
+                ` : ''}
+            </div>
         `;
-        this.resultContainer.classList.remove('hidden');
+    }
+
+    createCopySection(validEmails) {
+        const emailsJson = JSON.stringify(validEmails);
+        return `
+            <div class="copy-section">
+                <h4>📋 Quick Actions</h4>
+                <div class="copy-buttons">
+                    <button class="copy-btn primary" onclick="copyVerifiedEmails(${emailsJson}, 'comma')">
+                        📋 Copy All Emails (Comma Separated)
+                    </button>
+                    <button class="copy-btn" onclick="copyVerifiedEmails(${emailsJson}, 'newline')">
+                        📋 Copy All Emails (Line by Line)
+                    </button>
+                    <button class="copy-btn" onclick="copyVerifiedEmails(${emailsJson}, 'semicolon')">
+                        📋 Copy All Emails (Semicolon Separated)
+                    </button>
+                    <button class="copy-btn" onclick="copyVerifiedEmails(${emailsJson}, 'mailto')">
+                        ✉️ Copy as Mailto Link
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    createExportSection(validEmails) {
+        const csvData = validEmails.map(email => `"${email}"`).join('\\n');
+        const dataUrl = `data:text/csv;charset=utf-8,Email Address\\n${csvData}`;
+        
+        return `
+            <div class="export-section">
+                <h4>💾 Export Options</h4>
+                <div class="export-buttons">
+                    <a href="${dataUrl}" download="verified_emails.csv" class="export-btn">
+                        📊 Download as CSV
+                    </a>
+                    <button class="export-btn" onclick="this.downloadAsText('${validEmails.join('\\n')}', 'verified_emails.txt')">
+                        📄 Download as Text
+                    </button>
+                </div>
+            </div>
+        `;
     }
 
     createEmailList(emails, title, showCopyButton = false) {
@@ -402,7 +554,7 @@ class SecureContactForm {
         ).join('');
         
         return `
-            <div class="email-category ${showCopyButton ? 'verified-emails' : ''}">
+            <div class="email-category">
                 <h4>${title} (${emails.length})</h4>
                 <ul class="email-list">
                     ${emailItems}
@@ -431,6 +583,120 @@ class SecureContactForm {
         return div.innerHTML;
     }
 }
+
+// Add utility functions at the end of the file, before DOM initialization
+
+// Enhanced copy functionality with user feedback
+window.copyToClipboard = async function(text, feedbackText = 'Copied to clipboard!') {
+    try {
+        await navigator.clipboard.writeText(text);
+        showCopySuccess(feedbackText);
+        return true;
+    } catch (err) {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+            document.execCommand('copy');
+            showCopySuccess(feedbackText);
+            return true;
+        } catch (err) {
+            console.error('Failed to copy text: ', err);
+            showCopyError('Failed to copy to clipboard');
+            return false;
+        } finally {
+            document.body.removeChild(textArea);
+        }
+    }
+};
+
+// Show copy success notification
+function showCopySuccess(message) {
+    const notification = document.createElement('div');
+    notification.className = 'copy-success';
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 3000);
+}
+
+// Show copy error notification
+function showCopyError(message) {
+    const notification = document.createElement('div');
+    notification.className = 'copy-error';
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #dc3545;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 1000;
+        animation: copySuccessSlide 3s ease-in-out;
+    `;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 3000);
+}
+
+// Bulk copy function with different formats
+window.copyVerifiedEmails = function(emails, format = 'comma') {
+    let text = '';
+    let feedbackText = '';
+    
+    switch(format) {
+        case 'comma':
+            text = emails.join(', ');
+            feedbackText = `Copied ${emails.length} emails (comma separated)`;
+            break;
+        case 'newline':
+            text = emails.join('\n');
+            feedbackText = `Copied ${emails.length} emails (line by line)`;
+            break;
+        case 'semicolon':
+            text = emails.join('; ');
+            feedbackText = `Copied ${emails.length} emails (semicolon separated)`;
+            break;
+        case 'mailto':
+            text = `mailto:${emails.join(';')}`;
+            feedbackText = `Copied ${emails.length} emails as mailto link`;
+            break;
+        default:
+            text = emails.join(', ');
+            feedbackText = `Copied ${emails.length} emails`;
+    }
+    
+    copyToClipboard(text, feedbackText);
+};
+
+// Add utility function for downloading text files
+window.downloadAsText = function(content, filename) {
+    const element = document.createElement('a');
+    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(content));
+    element.setAttribute('download', filename);
+    element.style.display = 'none';
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+};
 
 // Initialize the form when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {

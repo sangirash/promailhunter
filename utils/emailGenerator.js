@@ -1,6 +1,7 @@
 // utils/emailGenerator.js
 const fs = require('fs').promises;
 const path = require('path');
+const dns = require('dns').promises;
 
 class EmailGenerator {
   constructor() {
@@ -9,14 +10,44 @@ class EmailGenerator {
       'gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 
       'aol.com', 'icloud.com', 'protonmail.com', 'mail.com'
     ];
+    
+    // Cache for domain validation to avoid repeated DNS queries
+    this.domainCache = new Map();
   }
 
   /**
-   * Generate domain variations from company name only
+   * Check if a domain exists by performing DNS MX record lookup
    */
-  generateDomains(companyName) {
+  async validateDomain(domain) {
+    // Check cache first
+    if (this.domainCache.has(domain)) {
+      return this.domainCache.get(domain);
+    }
+
+    try {
+      // Check MX records first (most reliable for email domains)
+      await dns.resolveMx(domain);
+      this.domainCache.set(domain, true);
+      return true;
+    } catch (error) {
+      try {
+        // Fallback: check if domain has any DNS records
+        await dns.resolve(domain, 'A');
+        this.domainCache.set(domain, true);
+        return true;
+      } catch (secondError) {
+        this.domainCache.set(domain, false);
+        return false;
+      }
+    }
+  }
+
+  /**
+   * Generate domain variations from company name and validate them
+   */
+  async generateValidatedDomains(companyName) {
     const cleanCompany = this.cleanCompanyName(companyName);
-    const domains = new Set();
+    const potentialDomains = new Set();
     
     // Check if company name contains common email providers
     const lowerCompanyName = companyName.toLowerCase();
@@ -29,27 +60,29 @@ class EmailGenerator {
       this.commonDomains.forEach(domain => {
         const provider = domain.split('.')[0];
         if (lowerCompanyName.includes(provider)) {
-          domains.add(domain);
+          potentialDomains.add(domain);
         }
       });
     }
     
-    // Always generate company-specific domains
-    if (cleanCompany) {
+    // Generate company-specific domains only if cleanCompany exists
+    if (cleanCompany && cleanCompany.length >= 2) {
       // Basic company domain variations
-      domains.add(`${cleanCompany}.com`);
-      domains.add(`${cleanCompany}.co`);
-      domains.add(`${cleanCompany}.org`);
-      domains.add(`${cleanCompany}.net`);
-      domains.add(`${cleanCompany}.io`);
-      domains.add(`${cleanCompany}.biz`);
+      potentialDomains.add(`${cleanCompany}.com`);
+      potentialDomains.add(`${cleanCompany}.co`);
+      potentialDomains.add(`${cleanCompany}.org`);
+      potentialDomains.add(`${cleanCompany}.net`);
+      potentialDomains.add(`${cleanCompany}.io`);
+      potentialDomains.add(`${cleanCompany}.biz`);
       
       // International variations
-      domains.add(`${cleanCompany}.co.uk`);
-      domains.add(`${cleanCompany}.com.au`);
-      domains.add(`${cleanCompany}.ca`);
-      domains.add(`${cleanCompany}.de`);
-      domains.add(`${cleanCompany}.fr`);
+      potentialDomains.add(`${cleanCompany}.co.uk`);
+      potentialDomains.add(`${cleanCompany}.com.au`);
+      potentialDomains.add(`${cleanCompany}.ca`);
+      potentialDomains.add(`${cleanCompany}.de`);
+      potentialDomains.add(`${cleanCompany}.fr`);
+      potentialDomains.add(`${cleanCompany}.in`);
+      potentialDomains.add(`${cleanCompany}.co.in`);
       
       // Without common business suffixes
       const withoutSuffixes = cleanCompany
@@ -57,12 +90,12 @@ class EmailGenerator {
         .replace(/\s+/g, '')
         .toLowerCase();
       
-      if (withoutSuffixes && withoutSuffixes !== cleanCompany && withoutSuffixes.length > 1) {
-        domains.add(`${withoutSuffixes}.com`);
-        domains.add(`${withoutSuffixes}.co`);
-        domains.add(`${withoutSuffixes}.org`);
-        domains.add(`${withoutSuffixes}.net`);
-        domains.add(`${withoutSuffixes}.io`);
+      if (withoutSuffixes && withoutSuffixes !== cleanCompany && withoutSuffixes.length >= 2) {
+        potentialDomains.add(`${withoutSuffixes}.com`);
+        potentialDomains.add(`${withoutSuffixes}.co`);
+        potentialDomains.add(`${withoutSuffixes}.org`);
+        potentialDomains.add(`${withoutSuffixes}.net`);
+        potentialDomains.add(`${withoutSuffixes}.io`);
       }
       
       // Acronym version (if company has multiple words)
@@ -74,11 +107,11 @@ class EmailGenerator {
       if (words.length > 1) {
         const acronym = words.map(word => word.charAt(0).toLowerCase()).join('');
         if (acronym.length >= 2 && acronym.length <= 6) {
-          domains.add(`${acronym}.com`);
-          domains.add(`${acronym}.co`);
-          domains.add(`${acronym}.org`);
-          domains.add(`${acronym}.net`);
-          domains.add(`${acronym}.io`);
+          potentialDomains.add(`${acronym}.com`);
+          potentialDomains.add(`${acronym}.co`);
+          potentialDomains.add(`${acronym}.org`);
+          potentialDomains.add(`${acronym}.net`);
+          potentialDomains.add(`${acronym}.io`);
         }
       }
       
@@ -90,23 +123,51 @@ class EmailGenerator {
           .replace(/-+/g, '-')
           .replace(/^-|-$/g, '');
         
-        if (hyphenated && hyphenated !== cleanCompany) {
-          domains.add(`${hyphenated}.com`);
-          domains.add(`${hyphenated}.co`);
-          domains.add(`${hyphenated}.org`);
-          domains.add(`${hyphenated}.net`);
+        if (hyphenated && hyphenated !== cleanCompany && hyphenated.length >= 2) {
+          potentialDomains.add(`${hyphenated}.com`);
+          potentialDomains.add(`${hyphenated}.co`);
+          potentialDomains.add(`${hyphenated}.org`);
+          potentialDomains.add(`${hyphenated}.net`);
         }
-      }
-      
-      // Handle numbers in company name
-      const withNumbers = cleanCompany.replace(/\D/g, '');
-      if (withNumbers) {
-        domains.add(`${cleanCompany}${withNumbers}.com`);
-        domains.add(`${withNumbers}${cleanCompany}.com`);
       }
     }
     
-    return Array.from(domains).filter(domain => domain.length > 4); // Filter out very short domains
+    // Convert to array and filter out very short domains
+    const domainsToValidate = Array.from(potentialDomains).filter(domain => domain.length > 4);
+    
+    console.log(`Checking ${domainsToValidate.length} potential domains for ${companyName}...`);
+    
+    // Validate domains in batches to avoid overwhelming DNS servers
+    const validDomains = [];
+    const batchSize = 5;
+    
+    for (let i = 0; i < domainsToValidate.length; i += batchSize) {
+      const batch = domainsToValidate.slice(i, i + batchSize);
+      const batchPromises = batch.map(async domain => {
+        try {
+          const isValid = await this.validateDomain(domain);
+          return isValid ? domain : null;
+        } catch (error) {
+          console.log(`Domain validation failed for ${domain}:`, error.message);
+          return null;
+        }
+      });
+      
+      const batchResults = await Promise.allSettled(batchPromises);
+      batchResults.forEach(result => {
+        if (result.status === 'fulfilled' && result.value) {
+          validDomains.push(result.value);
+        }
+      });
+      
+      // Small delay between batches to be respectful to DNS servers
+      if (i + batchSize < domainsToValidate.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+    
+    console.log(`Found ${validDomains.length} valid domains out of ${domainsToValidate.length} checked`);
+    return validDomains;
   }
 
   /**
@@ -122,7 +183,7 @@ class EmailGenerator {
   }
 
   /**
-   * Generate comprehensive username variations
+   * Generate comprehensive username variations (IMPROVED - no numbers prefix, no single chars)
    */
   generateUsernames(firstName, lastName) {
     const fName = firstName.toLowerCase().trim();
@@ -132,106 +193,148 @@ class EmailGenerator {
     
     const usernames = new Set();
     
-    // Basic combinations with different separators
-    usernames.add(`${fName}.${lName}`);
-    usernames.add(`${fName}_${lName}`);
-    usernames.add(`${fName}-${lName}`);
-    usernames.add(`${fName}${lName}`);
+    // Basic combinations with different separators (minimum 2 characters)
+    if (fName.length >= 2 && lName.length >= 2) {
+      usernames.add(`${fName}.${lName}`);
+      usernames.add(`${fName}_${lName}`);
+      usernames.add(`${fName}-${lName}`);
+      usernames.add(`${fName}${lName}`);
+    }
     
-    // Initial + lastname combinations
-    usernames.add(`${fInitial}.${lName}`);
-    usernames.add(`${fInitial}_${lName}`);
-    usernames.add(`${fInitial}-${lName}`);
-    usernames.add(`${fInitial}${lName}`);
+    // Initial + lastname combinations (avoid single character usernames)
+    if (lName.length >= 2) {
+      usernames.add(`${fInitial}.${lName}`);
+      usernames.add(`${fInitial}_${lName}`);
+      usernames.add(`${fInitial}-${lName}`);
+      usernames.add(`${fInitial}${lName}`);
+    }
     
-    // Firstname + initial combinations
-    usernames.add(`${fName}.${lInitial}`);
-    usernames.add(`${fName}_${lInitial}`);
-    usernames.add(`${fName}-${lInitial}`);
-    usernames.add(`${fName}${lInitial}`);
+    // Firstname + initial combinations (avoid single character usernames)
+    if (fName.length >= 2) {
+      usernames.add(`${fName}.${lInitial}`);
+      usernames.add(`${fName}_${lInitial}`);
+      usernames.add(`${fName}-${lInitial}`);
+      usernames.add(`${fName}${lInitial}`);
+    }
     
-    // Double initials
-    usernames.add(`${fInitial}.${lInitial}`);
-    usernames.add(`${fInitial}_${lInitial}`);
-    usernames.add(`${fInitial}-${lInitial}`);
+    // Double initials (only if makes sense - avoid single letters)
     usernames.add(`${fInitial}${lInitial}`);
     
-    // Reversed combinations
-    usernames.add(`${lName}.${fName}`);
-    usernames.add(`${lName}_${fName}`);
-    usernames.add(`${lName}-${fName}`);
-    usernames.add(`${lName}${fName}`);
+    // Reversed combinations (minimum 2 characters)
+    if (fName.length >= 2 && lName.length >= 2) {
+      usernames.add(`${lName}.${fName}`);
+      usernames.add(`${lName}_${fName}`);
+      usernames.add(`${lName}-${fName}`);
+      usernames.add(`${lName}${fName}`);
+    }
     
-    usernames.add(`${lName}.${fInitial}`);
-    usernames.add(`${lName}_${fInitial}`);
-    usernames.add(`${lName}-${fInitial}`);
-    usernames.add(`${lName}${fInitial}`);
+    if (lName.length >= 2) {
+      usernames.add(`${lName}.${fInitial}`);
+      usernames.add(`${lName}_${fInitial}`);
+      usernames.add(`${lName}-${fInitial}`);
+      usernames.add(`${lName}${fInitial}`);
+    }
     
-    // Single names
-    usernames.add(fName);
-    usernames.add(lName);
+    // Full names only if they're reasonable length
+    if (fName.length >= 2) {
+      usernames.add(fName);
+    }
+    if (lName.length >= 2) {
+      usernames.add(lName);
+    }
     
-    // Common business patterns
-    usernames.add(`${fName}${lName.charAt(0)}`);
-    usernames.add(`${fInitial}${lName.substring(0, 3)}`);
-    usernames.add(`${fName.substring(0, 3)}${lName.substring(0, 3)}`);
+    // Common business patterns (no single characters)
+    if (fName.length >= 2 && lName.length >= 2) {
+      usernames.add(`${fName}${lName.charAt(0)}`);
+      if (lName.length >= 3) {
+        usernames.add(`${fInitial}${lName.substring(0, 3)}`);
+      }
+      if (fName.length >= 3 && lName.length >= 3) {
+        usernames.add(`${fName.substring(0, 3)}${lName.substring(0, 3)}`);
+      }
+    }
     
-    // With common numbers
+    // With common numbers (SUFFIX ONLY - no prefix numbers)
     const commonNumbers = ['1', '01', '2', '123', '2024', '2025'];
-    const basePatterns = [
-      `${fName}.${lName}`,
-      `${fName}${lName}`,
-      `${fInitial}${lName}`,
-      `${fName}`,
-      `${lName}`
-    ];
+    const basePatterns = [];
+    
+    if (fName.length >= 2 && lName.length >= 2) {
+      basePatterns.push(`${fName}.${lName}`, `${fName}${lName}`);
+    }
+    if (lName.length >= 2) {
+      basePatterns.push(`${fInitial}${lName}`);
+    }
+    if (fName.length >= 2) {
+      basePatterns.push(fName);
+    }
+    if (lName.length >= 2) {
+      basePatterns.push(lName);
+    }
     
     basePatterns.forEach(pattern => {
       commonNumbers.forEach(num => {
+        // Only add numbers as SUFFIX, never prefix
         usernames.add(`${pattern}${num}`);
-        usernames.add(`${num}${pattern}`);
       });
     });
     
-    // Department/role based (common in corporations)
+    // Department/role based (common in corporations) - minimum 2 characters
     const departments = ['admin', 'info', 'contact', 'support', 'sales', 'hr', 'it', 'finance'];
     departments.forEach(dept => {
-      usernames.add(`${fName}.${dept}`);
-      usernames.add(`${dept}.${fName}`);
-      usernames.add(`${fInitial}${dept}`);
+      if (fName.length >= 2) {
+        usernames.add(`${fName}.${dept}`);
+        usernames.add(`${dept}.${fName}`);
+        usernames.add(`${fInitial}${dept}`);
+      }
     });
     
     // Length-based variations (some companies prefer specific lengths)
-    if (fName.length > 3) {
+    if (fName.length > 3 && lName.length >= 2) {
       usernames.add(`${fName.substring(0, 3)}.${lName}`);
-      usernames.add(`${fName.substring(0, 4)}.${lName}`);
+      if (fName.length > 4) {
+        usernames.add(`${fName.substring(0, 4)}.${lName}`);
+      }
     }
     
-    if (lName.length > 3) {
+    if (lName.length > 3 && fName.length >= 2) {
       usernames.add(`${fName}.${lName.substring(0, 3)}`);
-      usernames.add(`${fName}.${lName.substring(0, 4)}`);
+      if (lName.length > 4) {
+        usernames.add(`${fName}.${lName.substring(0, 4)}`);
+      }
     }
     
+    // Filter out invalid usernames
     return Array.from(usernames).filter(username => 
-      username.length > 0 && 
+      username.length >= 2 && // Minimum 2 characters
       username.length <= 64 && // Email username length limit
       !username.startsWith('.') && 
-      !username.endsWith('.')
+      !username.endsWith('.') &&
+      !username.startsWith('_') && 
+      !username.endsWith('_') &&
+      !username.startsWith('-') && 
+      !username.endsWith('-') &&
+      !/^\d/.test(username) // No numbers at the beginning
     );
   }
 
   /**
-   * Generate all possible email combinations for the specific company
+   * Generate all possible email combinations for validated domains only
    */
-  generateEmails(firstName, lastName, companyName) {
+  async generateEmails(firstName, lastName, companyName) {
     const usernames = this.generateUsernames(firstName, lastName);
-    const domains = this.generateDomains(companyName);
+    const validDomains = await this.generateValidatedDomains(companyName);
+    
+    if (validDomains.length === 0) {
+      console.log(`Warning: No valid domains found for ${companyName}. Using common providers only.`);
+      // If no company domains are valid, use common providers as fallback
+      validDomains.push(...this.commonDomains.slice(0, 3)); // Just add top 3 common providers
+    }
     
     const emails = new Set();
     
     // Generate all combinations
     usernames.forEach(username => {
-      domains.forEach(domain => {
+      validDomains.forEach(domain => {
         emails.add(`${username}@${domain}`);
       });
     });
@@ -240,11 +343,11 @@ class EmailGenerator {
   }
 
   /**
-   * Generate email data structure with metadata
+   * Generate email data structure with metadata and domain validation info
    */
-  generateEmailData(firstName, lastName, companyName) {
-    const emails = this.generateEmails(firstName, lastName, companyName);
-    const domains = this.generateDomains(companyName);
+  async generateEmailData(firstName, lastName, companyName) {
+    const validDomains = await this.generateValidatedDomains(companyName);
+    const emails = await this.generateEmails(firstName, lastName, companyName);
     const usernames = this.generateUsernames(firstName, lastName);
     
     // Categorize emails by domain type
@@ -277,8 +380,10 @@ class EmailGenerator {
         totalEmails: emails.length,
         companyEmails: companyEmails.length,
         commonProviderEmails: commonProviderEmails.length,
-        totalDomains: domains.length,
-        totalUsernames: usernames.length
+        totalDomains: validDomains.length,
+        totalUsernames: usernames.length,
+        validatedDomains: validDomains,
+        domainValidationEnabled: true
       },
       emails: {
         all: emails,
@@ -287,16 +392,19 @@ class EmailGenerator {
         byDomain: emailsByDomain
       },
       domains: {
-        all: domains,
-        company: domains.filter(d => !this.commonDomains.includes(d)),
-        commonProviders: domains.filter(d => this.commonDomains.includes(d))
+        all: validDomains,
+        company: validDomains.filter(d => !this.commonDomains.includes(d)),
+        commonProviders: validDomains.filter(d => this.commonDomains.includes(d)),
+        validated: true
       },
       patterns: {
         usernames: usernames,
         stats: {
           basicCombinations: usernames.filter(u => u.includes('.')).length,
           withNumbers: usernames.filter(u => /\d/.test(u)).length,
-          singleNames: usernames.filter(u => !u.includes('.') && !u.includes('_') && !u.includes('-')).length
+          singleNames: usernames.filter(u => !u.includes('.') && !u.includes('_') && !u.includes('-')).length,
+          minLength: Math.min(...usernames.map(u => u.length)),
+          maxLength: Math.max(...usernames.map(u => u.length))
         }
       }
     };
@@ -317,11 +425,7 @@ class EmailGenerator {
       const outputDir = path.join(process.cwd(), 'generated_emails');
       
       // Create directory if it doesn't exist
-      try {
-        await fs.access(outputDir);
-      } catch {
-        await fs.mkdir(outputDir, { recursive: true });
-      }
+      await fs.mkdir(outputDir, { recursive: true });
       
       const filePath = path.join(outputDir, filename);
       await fs.writeFile(filePath, JSON.stringify(emailData, null, 2), 'utf8');
@@ -331,7 +435,8 @@ class EmailGenerator {
         filePath,
         filename,
         totalEmails: emailData.emails.all.length,
-        companyEmails: emailData.emails.company.length
+        companyEmails: emailData.emails.company.length,
+        validatedDomains: emailData.metadata.validatedDomains
       };
     } catch (error) {
       throw new Error(`Failed to save email file: ${error.message}`);
@@ -343,7 +448,7 @@ class EmailGenerator {
    */
   async processContact(firstName, lastName, companyName, saveToFile = true) {
     try {
-      const emailData = this.generateEmailData(firstName, lastName, companyName);
+      const emailData = await this.generateEmailData(firstName, lastName, companyName);
       
       let fileInfo = null;
       if (saveToFile) {

@@ -3,46 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Contact Form</title>
+    <title>ProMailHunter - Email Finder & Verifier</title>
     <link rel="stylesheet" href="/css/styles.css">
-    <meta name="description" content="Secure contact form with API integration">
+    <meta name="description" content="Generate and verify professional email addresses for any company">
     <meta name="robots" content="noindex, nofollow">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>Corporate Mail Finder Form</h1>
-            <p>Please fill out all fields to submit your information securely.</p>
+            <h1>ProMailHunter</h1>
+            <p>Generate and verify professional email addresses instantly</p>
         </header>
 
         <main>
             <form id="contactForm" class="contact-form">
                 <div class="form-group">
                     <label for="firstName">First Name *</label>
-                    <input type="text" id="firstName" name="firstName" required maxlength="50">
+                    <input type="text" id="firstName" name="firstName" required maxlength="50" 
+                           placeholder="e.g., John">
                     <span class="error-message" id="firstName-error"></span>
                 </div>
 
                 <div class="form-group">
                     <label for="lastName">Last Name *</label>
-                    <input type="text" id="lastName" name="lastName" required maxlength="50">
+                    <input type="text" id="lastName" name="lastName" required maxlength="50"
+                           placeholder="e.g., Doe">
                     <span class="error-message" id="lastName-error"></span>
                 </div>
 
                 <div class="form-group">
                     <label for="companyName">Company Name *</label>
-                    <input type="text" id="companyName" name="companyName" required maxlength="100">
+                    <input type="text" id="companyName" name="companyName" required maxlength="100"
+                           placeholder="e.g., Acme Corporation">
                     <span class="error-message" id="companyName-error"></span>
                 </div>
 
                 <button type="submit" id="submitBtn" class="submit-btn">
-                    <span class="btn-text">Get Professional Mail</span>
+                    <span class="btn-text">🚀 Find & Verify Emails</span>
                     <span class="spinner" id="spinner"></span>
                 </button>
+                
+                <div class="button-info">
+                    <p><small>This will generate email combinations and verify which ones actually exist</small></p>
+                </div>
             </form>
 
             <div id="result" class="result-container hidden">
-                <h3>Submission Result</h3>
+                <h3>Results</h3>
                 <div id="resultContent"></div>
             </div>
         </main>
