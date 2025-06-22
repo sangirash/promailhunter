@@ -2,14 +2,20 @@
 const express = require('express');
 const axios = require('axios');
 const { validateContactForm, handleValidationErrors } = require('../middleware/validation');
-const { strictLimiter } = require('../middleware/rateLimiter');
+const { limiter, strictLimiter } = require('../middleware/rateLimiter');
 const sanitizer = require('../utils/sanitizer');
 const EmailGenerator = require('../utils/emailGenerator');
 const EnhancedEmailVerifier = require('../utils/enhancedEmailVerifier');
+const EmailPatternAnalytics = require('../utils/emailPatternAnalytics');
+const performanceMonitor = require('../utils/performanceMonitor');
+const fs = require('fs').promises; // ADDED: Missing fs import
+const dns = require('dns').promises; // ADDED: Missing dns import
 
 const router = express.Router();
 const emailGenerator = new EmailGenerator();
 const enhancedEmailVerifier = new EnhancedEmailVerifier();
+const patternAnalytics = new EmailPatternAnalytics();
+const originalGenerateAndVerify = router.post.bind(router);
 
 // Contact form submission endpoint (updated for single generation point)
 router.post('/contact', 
@@ -203,7 +209,7 @@ router.post('/generate-and-verify',
   strictLimiter,
   validateContactForm,
   handleValidationErrors,
-  async (req, res) => {
+  async (req, res, next) => {
     try {
       const sanitizedData = sanitizer.sanitizeObject(req.body);
       const { verificationOptions = {} } = req.body;
@@ -372,6 +378,28 @@ router.post('/generate-and-verify',
         features: combinedResults.metadata.enhancedFeatures
       });
 
+      const startTime = Date.now();
+      // Intercept the response
+      const originalJson = res.json;
+      res.json = function(data) {
+        const duration = Date.now() - startTime;
+        
+        // Record performance metrics
+        performanceMonitor.recordAPIRequest(duration, !data.success);
+        
+        // Record pattern analytics for valid emails
+        if (data.validEmails && data.validEmails.length > 0) {
+          data.validEmails.forEach(email => {
+            patternAnalytics.recordSuccessfulVerification(email, {
+              method: 'generate-and-verify',
+              confidence: 'high'
+            });
+          });
+        }
+        // Call original json method
+        return originalJson.call(this, data);
+      };
+
     } catch (error) {
       console.error('Enhanced Generate and Verify Error:', error.message);
       console.error('Stack trace:', error.stack);
@@ -382,6 +410,7 @@ router.post('/generate-and-verify',
         singleGenerationPoint: true
       });
     }
+    next();
   }
 );
 
@@ -643,6 +672,380 @@ router.get('/download-verification/:filename', (req, res) => {
     res.status(500).json({ error: 'Download failed' });
   }
 });
+
+// Add to routes/api.js
+
+// Domain validation endpoint
+router.post('/validate-domain',
+  limiter,
+  async (req, res) => {
+    try {
+      const { domain } = req.body;
+      
+      if (!domain) {
+        return res.status(400).json({
+          success: false,
+          error: 'Domain is required'
+        });
+      }
+
+      const sanitizedDomain = sanitizer.sanitizeText(domain).toLowerCase();
+      
+      // Basic format check
+      const domainPattern = /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!domainPattern.test(sanitizedDomain)) {
+        return res.json({
+          valid: false,
+          message: 'Invalid domain format',
+          domain: sanitizedDomain
+        });
+      }
+
+      console.log(`🔍 Validating domain: ${sanitizedDomain}`);
+
+      // Check if it's a known public provider
+      const publicProviders = [
+        'gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 
+        'aol.com', 'icloud.com', 'protonmail.com', 'mail.com'
+      ];
+      const isPublicProvider = publicProviders.includes(sanitizedDomain);
+
+      // Check if it's a known corporate domain
+      const corporateDomains = enhancedEmailVerifier.corporateDomainsWithStrictSecurity;
+      const isCorporateDomain = corporateDomains.includes(sanitizedDomain);
+
+      try {
+        // Perform DNS MX record check
+        const mxRecords = await dns.resolveMx(sanitizedDomain);
+        
+        if (mxRecords && mxRecords.length > 0) {
+          res.json({
+            valid: true,
+            message: `✅ ${sanitizedDomain} can receive emails`,
+            domain: sanitizedDomain,
+            mxRecords: mxRecords.slice(0, 3).map(mx => ({
+              exchange: mx.exchange,
+              priority: mx.priority
+            })),
+            isPublicProvider,
+            isCorporateDomain,
+            features: {
+              hasMultipleMX: mxRecords.length > 1,
+              primaryMX: mxRecords[0].exchange
+            }
+          });
+        } else {
+          res.json({
+            valid: false,
+            message: `❌ ${sanitizedDomain} has no email servers`,
+            domain: sanitizedDomain,
+            isPublicProvider: false,
+            isCorporateDomain: false
+          });
+        }
+      } catch (dnsError) {
+        // Try A record as fallback
+        try {
+          await dns.resolve(sanitizedDomain, 'A');
+          res.json({
+            valid: true,
+            message: `⚠️ ${sanitizedDomain} exists but may not accept emails`,
+            domain: sanitizedDomain,
+            warning: 'Domain has no MX records but exists',
+            isPublicProvider,
+            isCorporateDomain
+          });
+        } catch (secondError) {
+          res.json({
+            valid: false,
+            message: `❌ ${sanitizedDomain} does not exist`,
+            domain: sanitizedDomain,
+            isPublicProvider: false,
+            isCorporateDomain: false
+          });
+        }
+      }
+
+    } catch (error) {
+      console.error('Domain validation error:', error.message);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to validate domain',
+        code: 'DOMAIN_VALIDATION_ERROR'
+      });
+    }
+  }
+);
+
+// Bulk domain validation endpoint
+router.post('/validate-domains-bulk',
+  strictLimiter,
+  async (req, res) => {
+    try {
+      const { domains } = req.body;
+      
+      if (!domains || !Array.isArray(domains)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Array of domains is required'
+        });
+      }
+
+      if (domains.length > 10) {
+        return res.status(400).json({
+          success: false,
+          error: 'Maximum 10 domains per request'
+        });
+      }
+
+      console.log(`🔍 Bulk validating ${domains.length} domains`);
+
+      const results = await Promise.all(
+        domains.map(async (domain) => {
+          const sanitizedDomain = sanitizer.sanitizeText(domain).toLowerCase();
+          
+          try {
+            const mxRecords = await dns.resolveMx(sanitizedDomain);
+            return {
+              domain: sanitizedDomain,
+              valid: true,
+              hasMX: true,
+              mxCount: mxRecords.length
+            };
+          } catch (error) {
+            try {
+              await dns.resolve(sanitizedDomain, 'A');
+              return {
+                domain: sanitizedDomain,
+                valid: true,
+                hasMX: false,
+                hasA: true
+              };
+            } catch (secondError) {
+              return {
+                domain: sanitizedDomain,
+                valid: false,
+                error: 'Domain not found'
+              };
+            }
+          }
+        })
+      );
+
+      const summary = {
+        total: results.length,
+        valid: results.filter(r => r.valid).length,
+        invalid: results.filter(r => !r.valid).length,
+        withMX: results.filter(r => r.hasMX).length
+      };
+
+      res.json({
+        success: true,
+        summary,
+        results
+      });
+
+    } catch (error) {
+      console.error('Bulk domain validation error:', error.message);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to validate domains',
+        code: 'BULK_DOMAIN_VALIDATION_ERROR'
+      });
+    }
+  }
+);
+
+// Performance monitoring endpoint
+router.get('/performance', (req, res) => {
+  const detailed = req.query.detailed === 'true';
+  const report = detailed ? 
+    performanceMonitor.getDetailedReport() : 
+    performanceMonitor.getSummary();
+  
+  res.json({
+    success: true,
+    report,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Reset performance metrics
+router.post('/performance/reset',
+  strictLimiter,
+  (req, res) => {
+    performanceMonitor.reset();
+    res.json({
+      success: true,
+      message: 'Performance metrics reset',
+      resetTime: new Date().toISOString()
+    });
+  }
+);
+
+// Pattern analytics for a specific domain
+router.get('/analytics/domain/:domain', async (req, res) => {
+  try {
+    const domain = req.params.domain.toLowerCase();
+    const report = patternAnalytics.getDomainReport(domain);
+    
+    res.json({
+      success: true,
+      report,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate domain report'
+    });
+  }
+});
+
+// Global analytics summary
+router.get('/analytics/summary', async (req, res) => {
+  try {
+    const summary = patternAnalytics.getGlobalSummary();
+    
+    res.json({
+      success: true,
+      summary,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate analytics summary'
+    });
+  }
+});
+
+// Export analytics data
+router.get('/analytics/export', async (req, res) => {
+  try {
+    const format = req.query.format || 'json';
+    const data = await patternAnalytics.exportAnalytics(format);
+    
+    if (format === 'csv') {
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=email_pattern_analytics.csv');
+      res.send(data);
+    } else {
+      res.json({
+        success: true,
+        data,
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to export analytics'
+    });
+  }
+});
+
+// System diagnostics endpoint
+router.get('/diagnostics', async (req, res) => {
+  try {
+    // Check various system components
+    const diagnostics = {
+      nodejs: {
+        version: process.version,
+        memory: process.memoryUsage(),
+        uptime: process.uptime()
+      },
+      emailGenerator: {
+        status: 'operational',
+        domainCacheSize: emailGenerator.domainCache.size
+      },
+      emailVerifier: {
+        status: 'operational',
+        pythonAvailable: enhancedEmailVerifier.pythonAvailable,
+        corporateDomainsCount: enhancedEmailVerifier.corporateDomainsWithStrictSecurity.length,
+        knownPatternsCount: Object.keys(enhancedEmailVerifier.knownValidPatterns).length
+      },
+      performance: performanceMonitor.getSystemHealth(),
+      storage: await checkStorageHealth()
+    };
+    
+    res.json({
+      success: true,
+      diagnostics,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to run diagnostics',
+      message: error.message
+    });
+  }
+});
+
+// Helper function to check storage health
+async function checkStorageHealth() {
+  const path = require('path');
+  const dirs = [
+    'generated_emails',
+    'email_verification_results',
+    'data'
+  ];
+  
+  const health = {
+    directories: {},
+    totalFiles: 0
+  };
+  
+  for (const dir of dirs) {
+    try {
+      const dirPath = path.join(process.cwd(), dir);
+      const files = await fs.readdir(dirPath);
+      health.directories[dir] = {
+        exists: true,
+        fileCount: files.length
+      };
+      health.totalFiles += files.length;
+    } catch (error) {
+      health.directories[dir] = {
+        exists: false,
+        fileCount: 0
+      };
+    }
+  }
+  
+  return health;
+}
+
+// Webhook for recording successful verifications (for pattern learning)
+router.post('/analytics/record-verification',
+  limiter,
+  async (req, res) => {
+    try {
+      const { email, verificationData } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          error: 'Email is required'
+        });
+      }
+      
+      await patternAnalytics.recordSuccessfulVerification(email, verificationData);
+      
+      res.json({
+        success: true,
+        message: 'Verification recorded',
+        pattern: patternAnalytics.analyzeEmailPattern(email)
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to record verification'
+      });
+    }
+  }
+);
 
 // Health check with enhanced status (updated)
 router.get('/health', (req, res) => {

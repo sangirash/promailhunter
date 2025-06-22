@@ -6,7 +6,78 @@
     <title>ProMailHunter - Email Finder & Verifier</title>
     <link rel="stylesheet" href="/css/styles.css">
     <meta name="description" content="Generate and verify professional email addresses for any company domain">
-    <meta name="robots" content="noindex, nofollow">
+    <style>
+        /* Additional styles for improved UI */
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .action-btn {
+            flex: 1;
+            min-width: 200px;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .generate-btn {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+        }
+        
+        .verify-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        }
+        
+        .action-btn.loading {
+            pointer-events: none;
+            opacity: 0.8;
+        }
+        
+        .action-description {
+            font-size: 0.85rem;
+            opacity: 0.9;
+            margin-top: 4px;
+        }
+        
+        .domain-validator {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f0f8ff;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            display: none;
+        }
+        
+        .domain-validator.show {
+            display: block;
+        }
+        
+        .validation-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .validation-icon {
+            font-size: 1.2rem;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -36,6 +107,15 @@
                     <input type="text" id="companyName" name="companyName" required maxlength="100"
                            placeholder="e.g., company.com or user@company.com">
                     <span class="error-message" id="companyName-error"></span>
+                    
+                    <!-- Real-time domain validation feedback -->
+                    <div id="domainValidator" class="domain-validator">
+                        <div class="validation-status">
+                            <span class="validation-icon" id="validationIcon"></span>
+                            <span id="validationMessage"></span>
+                        </div>
+                    </div>
+                    
                     <div class="input-help">
                         <small>
                             <strong>📝 Enter the company's email domain:</strong><br>
@@ -47,13 +127,22 @@
                     </div>
                 </div>
 
-                <button type="submit" id="submitBtn" class="submit-btn">
-                    <span class="btn-text">🚀 Find & Verify Emails</span>
-                    <span class="spinner" id="spinner"></span>
-                </button>
+                <div class="action-buttons">
+                    <button type="button" id="generateBtn" class="action-btn generate-btn">
+                        <span class="btn-text">📧 Generate Emails Only</span>
+                        <div class="action-description">Quick generation without verification</div>
+                        <span class="spinner"></span>
+                    </button>
+                    
+                    <button type="button" id="verifyBtn" class="action-btn verify-btn">
+                        <span class="btn-text">🔍 Generate & Deep Verify</span>
+                        <div class="action-description">Test if mailboxes actually exist</div>
+                        <span class="spinner"></span>
+                    </button>
+                </div>
                 
                 <div class="button-info">
-                    <p><small>This will generate email combinations for the specified domain and verify which ones exist</small></p>
+                    <p><small>💡 <strong>Tip:</strong> Use "Generate Only" for quick results, or "Deep Verify" to confirm which email addresses actually exist (takes longer but more accurate)</small></p>
                 </div>
             </form>
 
@@ -67,56 +156,39 @@
             <div class="features-info">
                 <h3>🎯 How It Works</h3>
                 <ul>
-                    <li><strong>Domain Validation:</strong> Verifies the domain accepts email</li>
-                    <li><strong>Pattern Generation:</strong> Creates common business email patterns</li>
-                    <li><strong>Email Verification:</strong> Tests which emails actually exist</li>
-                    <li><strong>Smart Results:</strong> Shows only valid, deliverable addresses</li>
+                    <li><strong>Domain Validation:</strong> Real-time verification as you type</li>
+                    <li><strong>Smart Generation:</strong> Creates personal name patterns only (no generic emails)</li>
+                    <li><strong>Deep Verification:</strong> Actually tests if mailboxes exist via SMTP</li>
+                    <li><strong>Corporate Intelligence:</strong> Special handling for enterprise domains</li>
                 </ul>
             </div>
             
-            <div class="examples-info">
-                <h3>📋 Example Inputs</h3>
-                <div class="example-grid">
-                    <div class="example-item">
-                        <strong>✅ Good:</strong>
-                        <code>ukg.com</code>
-                    </div>
-                    <div class="example-item">
-                        <strong>✅ Good:</strong>
-                        <code>john@microsoft.com</code>
-                    </div>
-                    <div class="example-item">
-                        <strong>✅ Good:</strong>
-                        <code>https://salesforce.com</code>
-                    </div>
-                    <div class="example-item">
-                        <strong>✅ Good:</strong>
-                        <code>www.oracle.com</code>
-                    </div>
-                    <div class="example-item">
-                        <strong>❌ Bad:</strong>
-                        <code>Acme Corporation</code>
-                    </div>
-                    <div class="example-item">
-                        <strong>❌ Bad:</strong>
-                        <code>Some Company Inc</code>
-                    </div>
-                </div>
-            </div>
-
-            <div class="tech-info">
-                <h3>🔧 Advanced Features</h3>
-                <ul>
-                    <li><strong>Python Integration:</strong> Uses email-validator for RFC compliance</li>
-                    <li><strong>International Support:</strong> Handles Unicode domains and emails</li>
-                    <li><strong>Corporate Intelligence:</strong> Knows how different companies handle email</li>
-                    <li><strong>SMTP Verification:</strong> Actually tests email deliverability</li>
-                    <li><strong>Pattern Learning:</strong> Learns email patterns for each domain</li>
-                </ul>
+            <div class="verification-comparison">
+                <h3>📊 Verification Methods Comparison</h3>
+                <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                    <tr style="background: #f5f5f5;">
+                        <th style="padding: 10px; text-align: left;">Method</th>
+                        <th style="padding: 10px; text-align: left;">Speed</th>
+                        <th style="padding: 10px; text-align: left;">Accuracy</th>
+                        <th style="padding: 10px; text-align: left;">Best For</th>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; border-top: 1px solid #ddd;">Generate Only</td>
+                        <td style="padding: 10px; border-top: 1px solid #ddd;">⚡ Instant</td>
+                        <td style="padding: 10px; border-top: 1px solid #ddd;">⭐⭐</td>
+                        <td style="padding: 10px; border-top: 1px solid #ddd;">Quick email list creation</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; border-top: 1px solid #ddd;">Deep Verify</td>
+                        <td style="padding: 10px; border-top: 1px solid #ddd;">🐌 30-60s</td>
+                        <td style="padding: 10px; border-top: 1px solid #ddd;">⭐⭐⭐⭐⭐</td>
+                        <td style="padding: 10px; border-top: 1px solid #ddd;">Confirming real mailboxes</td>
+                    </tr>
+                </table>
             </div>
         </footer>
     </div>
 
-    <script src="/js/app.js"></script>
+    <script src="/js/app-improved.js"></script>
 </body>
 </html>
