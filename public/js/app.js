@@ -199,7 +199,7 @@ class SecureContactForm {
                 }
             };
 
-            const response = await fetch('/api/generate-and-verify?limit=30', {
+            const response = await fetch('/api/generate-and-verify?limit=60', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
