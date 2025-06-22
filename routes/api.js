@@ -16,6 +16,7 @@ const emailGenerator = new EmailGenerator();
 const enhancedEmailVerifier = new EnhancedEmailVerifier();
 const patternAnalytics = new EmailPatternAnalytics();
 const originalGenerateAndVerify = router.post.bind(router);
+const SmartEmailSubsetSelector = require('../utils/smartEmailSubsetSelector');
 
 // Contact form submission endpoint (updated for single generation point)
 router.post('/contact', 
@@ -256,13 +257,47 @@ router.post('/generate-and-verify',
       
       // STEP 3: Apply limit if requested (but use EmailGenerator's output)
       const limit = parseInt(req.query.limit) || allGeneratedEmails.length; // No default limit
-      const emailsToVerify = allGeneratedEmails.slice(0, limit);
+      const useSmartSelection = req.query.smartSelection !== 'false';
+
+      let emailsToVerify;
+      let subsetStrategy;
       
-      console.log(`🔍 Will verify ${emailsToVerify.length} emails (limited from ${allGeneratedEmails.length})`);
-      
-      if (emailsToVerify.length !== allGeneratedEmails.length) {
-        console.log(`⚠️ Note: Limiting verification to first ${emailsToVerify.length} emails out of ${allGeneratedEmails.length} generated`);
+      if (useSmartSelection && limit < allGeneratedEmails.length) {
+        // Use smart selection
+        console.log(`🧠 Using smart subset selection to pick ${limit} emails from ${allGeneratedEmails.length}`);
+    
+        emailsToVerify = SmartEmailSubsetSelector.selectSmartSubset(
+            allGeneratedEmails, 
+            limit,
+            {
+                firstName: sanitizedData.firstName,
+                lastName: sanitizedData.lastName,
+                prioritizePatterns: true,
+                includeDiversity: true
+            }
+        );
+        subsetStrategy = SmartEmailSubsetSelector.getStrategyExplanation(
+            allGeneratedEmails, 
+            emailsToVerify
+        );
+        console.log(`📋 Smart selection picked:`, subsetStrategy.selectedPatterns);
+      } else {
+          // Use simple slicing (old method)
+          emailsToVerify = allGeneratedEmails.slice(0, limit);
+          subsetStrategy = {
+              summary: {
+                  total: allGeneratedEmails.length,
+                  selected: emailsToVerify.length,
+                  percentage: ((emailsToVerify.length / allGeneratedEmails.length) * 100).toFixed(1) + '%'
+              },
+              strategy: 'Simple sequential selection (first N emails)',
+              rationale: ['Taking first ' + limit + ' emails in order of generation']
+          };
       }
+      console.log(`🔍 Will verify ${emailsToVerify.length} emails (${subsetStrategy.summary.percentage} of total)`);
+      // Log the emails being verified for transparency
+      console.log(`📧 Emails selected for verification:`, emailsToVerify.slice(0, 10), 
+      emailsToVerify.length > 10 ? `... and ${emailsToVerify.length - 10} more` : '');
 
       // STEP 4: Verify the emails (using EmailVerifier)
       console.log(`📫 Step 2: Verifying emails using EnhancedEmailVerifier...`);
@@ -313,23 +348,26 @@ router.post('/generate-and-verify',
           totalEmailsGenerated: allGeneratedEmails.length,
           emailsVerified: verificationResults.length,
           emailsLimitApplied: emailsToVerify.length !== allGeneratedEmails.length,
+          subsetStrategy: subsetStrategy, // ADD THIS
           verificationMethod: 'enhanced-email-verifier-deep',
           pythonValidatorUsed: enhancedEmailVerifier.pythonAvailable,
           singleGenerationPoint: true,
           enhancedFeatures: {
-            userProvidedDomain: true,
-            personalNamesOnly: true,
-            singleGenerationPoint: true,
-            deepVerification: true,
-            mailboxTesting: true,
-            pythonValidator: enhancedEmailVerifier.pythonAvailable
+              userProvidedDomain: true,
+              personalNamesOnly: true,
+              singleGenerationPoint: true,
+              deepVerification: true,
+              mailboxTesting: true,
+              smartSubsetSelection: useSmartSelection, // ADD THIS
+              pythonValidator: enhancedEmailVerifier.pythonAvailable
           }
         },
         generation: {
           ...emailResult.data,
           generatedBy: 'EmailGenerator',
           allEmails: allGeneratedEmails,
-          verificationSubset: emailsToVerify
+          verificationSubset: emailsToVerify,
+          subsetSelectionMethod: useSmartSelection ? 'smart-pattern-based' : 'sequential' // ADD THIS
         },
         verification: {
           results: verificationResults,
