@@ -1,16 +1,17 @@
+// routes/api.js - Updated with Enhanced Email Verification
 const express = require('express');
 const axios = require('axios');
 const { validateContactForm, handleValidationErrors } = require('../middleware/validation');
 const { strictLimiter } = require('../middleware/rateLimiter');
 const sanitizer = require('../utils/sanitizer');
 const EmailGenerator = require('../utils/emailGenerator');
-const EmailVerifier = require('../utils/emailVerifier');
+const EnhancedEmailVerifier = require('../utils/enhancedEmailVerifier');
 
 const router = express.Router();
 const emailGenerator = new EmailGenerator();
-const emailVerifier = new EmailVerifier();
+const enhancedEmailVerifier = new EnhancedEmailVerifier();
 
-// Contact form submission endpoint (with email generation)
+// Contact form submission endpoint (with enhanced email generation)
 router.post('/contact', 
   strictLimiter,
   validateContactForm,
@@ -19,7 +20,7 @@ router.post('/contact',
     try {
       const sanitizedData = sanitizer.sanitizeObject(req.body);
       
-      // Generate emails
+      // Generate emails with enhanced domain validation
       const emailResult = await emailGenerator.processContact(
         sanitizedData.firstName,
         sanitizedData.lastName,
@@ -41,7 +42,7 @@ router.post('/contact',
           timeout: process.env.API_TIMEOUT || 5000,
           headers: {
             'Content-Type': 'application/json',
-            'User-Agent': 'SecureContactApp/1.0'
+            'User-Agent': 'ProMailHunter/1.0'
           }
         }
       );
@@ -60,7 +61,9 @@ router.post('/contact',
           companyEmails: emailResult.data.emails.company.length,
           commonProviderEmails: emailResult.data.emails.commonProviders.length,
           totalDomains: emailResult.data.domains.all.length,
-          fileSaved: emailResult.file ? emailResult.file.filename : null
+          validatedDomains: emailResult.data.metadata.validatedDomains,
+          fileSaved: emailResult.file ? emailResult.file.filename : null,
+          enhancedValidation: true
         }
       });
 
@@ -75,7 +78,7 @@ router.post('/contact',
   }
 );
 
-// Email generation only
+// Enhanced email generation only
 router.post('/generate-emails',
   strictLimiter,
   validateContactForm,
@@ -93,13 +96,18 @@ router.post('/generate-emails',
 
       res.json({
         success: true,
-        message: 'Email combinations generated successfully',
+        message: 'Email combinations generated successfully with enhanced validation',
         data: emailResult.data,
-        file: emailResult.file
+        file: emailResult.file,
+        enhancedFeatures: {
+          domainValidation: true,
+          patternMatching: true,
+          corporateIntelligence: true
+        }
       });
 
     } catch (error) {
-      console.error('Email Generation Error:', error.message);
+      console.error('Enhanced Email Generation Error:', error.message);
       res.status(500).json({
         success: false,
         error: 'Failed to generate email combinations',
@@ -109,35 +117,7 @@ router.post('/generate-emails',
   }
 );
 
-// Simple email format endpoint
-router.post('/emails-simple',
-  strictLimiter,
-  validateContactForm,
-  handleValidationErrors,
-  async (req, res) => {
-    try {
-      const sanitizedData = sanitizer.sanitizeObject(req.body);
-      
-      const emails = emailGenerator.generateEmails(
-        sanitizedData.firstName,
-        sanitizedData.lastName,
-        sanitizedData.companyName
-      );
-
-      res.json({ emails: emails });
-
-    } catch (error) {
-      console.error('Simple Email Generation Error:', error.message);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to generate email list',
-        code: 'SIMPLE_EMAIL_ERROR'
-      });
-    }
-  }
-);
-
-// Single email verification
+// Enhanced single email verification
 router.post('/verify-email',
   strictLimiter,
   async (req, res) => {
@@ -154,28 +134,36 @@ router.post('/verify-email',
       const sanitizedEmail = sanitizer.sanitizeText(email);
       const verificationOptions = {
         enableSMTP: options.enableSMTP !== false,
-        enableEmailPing: options.enableEmailPing === true
+        enableDeliverability: options.enableDeliverability !== false,
+        usePythonValidator: options.usePythonValidator !== false,
+        allowUTF8: options.allowUTF8 !== false,
+        allowQuoted: options.allowQuoted !== false,
+        globallyDeliverable: options.globallyDeliverable !== false,
+        timeout: options.timeout || 15
       };
 
-      const result = await emailVerifier.verifyEmail(sanitizedEmail, verificationOptions);
+      console.log(`🔍 Enhanced verification for: ${sanitizedEmail}`);
+      const result = await enhancedEmailVerifier.verifyEmail(sanitizedEmail, verificationOptions);
 
       res.json({
         success: true,
-        result
+        result,
+        enhanced: true,
+        pythonValidatorUsed: result.finalResult?.method === 'python-email-validator'
       });
 
     } catch (error) {
-      console.error('Email Verification Error:', error.message);
+      console.error('Enhanced Email Verification Error:', error.message);
       res.status(500).json({
         success: false,
         error: 'Failed to verify email address',
-        code: 'EMAIL_VERIFICATION_ERROR'
+        code: 'ENHANCED_EMAIL_VERIFICATION_ERROR'
       });
     }
   }
 );
 
-// Batch email verification
+// Enhanced batch email verification
 router.post('/verify-emails-batch',
   strictLimiter,
   async (req, res) => {
@@ -199,45 +187,55 @@ router.post('/verify-emails-batch',
       const sanitizedEmails = emails.map(email => sanitizer.sanitizeText(email));
       const verificationOptions = {
         enableSMTP: options.enableSMTP !== false,
-        enableEmailPing: options.enableEmailPing === true,
+        enableDeliverability: options.enableDeliverability !== false,
+        usePythonValidator: options.usePythonValidator !== false,
+        allowUTF8: options.allowUTF8 !== false,
+        allowQuoted: options.allowQuoted !== false,
+        globallyDeliverable: options.globallyDeliverable !== false,
         concurrency: Math.min(options.concurrency || 3, 5),
-        delay: Math.max(options.delay || 2000, 1000)
+        delay: Math.max(options.delay || 2000, 1000),
+        timeout: options.timeout || 15
       };
 
-      const results = await emailVerifier.verifyEmailBatch(sanitizedEmails, verificationOptions);
+      console.log(`🔍 Enhanced batch verification for ${sanitizedEmails.length} emails`);
+      const results = await enhancedEmailVerifier.verifyEmailBatch(sanitizedEmails, verificationOptions);
 
       const saveResults = options.saveResults !== false;
       let fileInfo = null;
       if (saveResults) {
-        fileInfo = await emailVerifier.saveResults(results);
+        fileInfo = await enhancedEmailVerifier.saveResults(results);
       }
 
       const summary = {
         total: results.length,
         valid: results.filter(r => r.finalResult?.valid === true).length,
         invalid: results.filter(r => r.finalResult?.valid === false).length,
-        uncertain: results.filter(r => r.finalResult?.confidence === 'unknown').length
+        uncertain: results.filter(r => r.finalResult?.confidence === 'unknown').length,
+        pythonValidated: results.filter(r => r.finalResult?.method === 'python-email-validator').length,
+        corporateDomains: results.filter(r => r.finalResult?.corporateDomain === true).length
       };
 
       res.json({
         success: true,
         summary,
         results,
-        file: fileInfo
+        file: fileInfo,
+        enhanced: true,
+        verificationMethod: 'enhanced-email-verifier'
       });
 
     } catch (error) {
-      console.error('Batch Email Verification Error:', error.message);
+      console.error('Enhanced Batch Email Verification Error:', error.message);
       res.status(500).json({
         success: false,
         error: 'Failed to verify email addresses',
-        code: 'BATCH_EMAIL_VERIFICATION_ERROR'
+        code: 'ENHANCED_BATCH_EMAIL_VERIFICATION_ERROR'
       });
     }
   }
 );
 
-// Generate and verify emails
+// Enhanced generate and verify emails
 router.post('/generate-and-verify',
   strictLimiter,
   validateContactForm,
@@ -247,7 +245,9 @@ router.post('/generate-and-verify',
       const sanitizedData = sanitizer.sanitizeObject(req.body);
       const { verificationOptions = {} } = req.body;
       
-      // Generate emails
+      console.log(`🚀 Enhanced generate and verify for ${sanitizedData.firstName} ${sanitizedData.lastName} at ${sanitizedData.companyName}`);
+      
+      // Generate emails with enhanced domain validation
       const emailResult = await emailGenerator.processContact(
         sanitizedData.firstName,
         sanitizedData.lastName,
@@ -260,15 +260,21 @@ router.post('/generate-and-verify',
         parseInt(req.query.limit) || 30
       );
 
-      // Verify emails
-      const verificationResults = await emailVerifier.verifyEmailBatch(
+      console.log(`📧 Generated ${emailResult.data.emails.all.length} emails, verifying top ${emailsToVerify.length}`);
+
+      // Enhanced verification with Python email-validator
+      const verificationResults = await enhancedEmailVerifier.verifyEmailBatch(
         emailsToVerify, 
         {
-          ...verificationOptions,
           enableSMTP: verificationOptions.enableSMTP !== false,
-          enableEmailPing: false,
+          enableDeliverability: verificationOptions.enableDeliverability !== false,
+          usePythonValidator: verificationOptions.usePythonValidator !== false,
+          allowUTF8: verificationOptions.allowUTF8 !== false,
+          allowQuoted: verificationOptions.allowQuoted !== false,
+          globallyDeliverable: verificationOptions.globallyDeliverable !== false,
           concurrency: 3,
-          delay: 2000
+          delay: 2000,
+          timeout: 15
         }
       );
 
@@ -285,12 +291,25 @@ router.post('/generate-and-verify',
         .filter(result => result.finalResult?.confidence === 'unknown')
         .map(result => result.email);
 
-      // Save combined results
+      const pythonValidatedEmails = verificationResults
+        .filter(result => result.finalResult?.method === 'python-email-validator')
+        .map(result => result.email);
+
+      // Save combined results with enhanced metadata
       const combinedResults = {
         metadata: {
           ...emailResult.data.metadata,
           verificationTimestamp: new Date().toISOString(),
-          emailsVerified: verificationResults.length
+          emailsVerified: verificationResults.length,
+          verificationMethod: 'enhanced-email-verifier',
+          pythonValidatorUsed: enhancedEmailVerifier.pythonAvailable,
+          pythonValidatedCount: pythonValidatedEmails.length,
+          enhancedFeatures: {
+            domainValidation: true,
+            patternMatching: true,
+            corporateIntelligence: true,
+            pythonValidator: enhancedEmailVerifier.pythonAvailable
+          }
         },
         generation: emailResult.data,
         verification: {
@@ -299,39 +318,122 @@ router.post('/generate-and-verify',
             total: verificationResults.length,
             valid: validEmails.length,
             invalid: invalidEmails.length,
-            uncertain: uncertainEmails.length
+            uncertain: uncertainEmails.length,
+            pythonValidated: pythonValidatedEmails.length,
+            corporateDomains: verificationResults.filter(r => r.finalResult?.corporateDomain === true).length
           },
           validEmails,
           invalidEmails,
-          uncertainEmails
+          uncertainEmails,
+          pythonValidatedEmails
         }
       };
 
-      const fileInfo = await emailVerifier.saveResults(
+      const fileInfo = await enhancedEmailVerifier.saveResults(
         combinedResults, 
-        `combined_${sanitizedData.firstName}_${sanitizedData.lastName}_${Date.now()}.json`
+        `enhanced_combined_${sanitizedData.firstName}_${sanitizedData.lastName}_${Date.now()}.json`
       );
 
       res.json({
         success: true,
-        message: 'Emails generated and verified successfully',
+        message: 'Emails generated and verified successfully with enhanced validation',
         summary: combinedResults.verification.summary,
         validEmails,
-        file: fileInfo
+        file: fileInfo,
+        enhanced: true,
+        pythonValidatorUsed: enhancedEmailVerifier.pythonAvailable,
+        features: combinedResults.metadata.enhancedFeatures
       });
 
     } catch (error) {
-      console.error('Generate and Verify Error:', error.message);
+      console.error('Enhanced Generate and Verify Error:', error.message);
       res.status(500).json({
         success: false,
-        error: 'Failed to generate and verify emails',
-        code: 'GENERATE_VERIFY_ERROR'
+        error: 'Failed to generate and verify emails with enhanced validation',
+        code: 'ENHANCED_GENERATE_VERIFY_ERROR'
       });
     }
   }
 );
 
-// Download endpoints
+// Enhanced email validator status endpoint
+router.get('/verifier-status', (req, res) => {
+  res.json({
+    status: 'enhanced',
+    pythonValidatorAvailable: enhancedEmailVerifier.pythonAvailable,
+    features: {
+      domainValidation: true,
+      patternMatching: true,
+      corporateIntelligence: true,
+      pythonValidator: enhancedEmailVerifier.pythonAvailable,
+      smtpVerification: true,
+      batchProcessing: true
+    },
+    supportedDomains: enhancedEmailVerifier.corporateDomainsWithStrictSecurity.length,
+    knownPatterns: Object.keys(enhancedEmailVerifier.knownValidPatterns).length,
+    version: '2.0.0-enhanced'
+  });
+});
+
+// Test enhanced verification endpoint
+router.post('/test-enhanced-verification',
+  strictLimiter,
+  async (req, res) => {
+    try {
+      const testEmails = [
+        'test@gmail.com',
+        'admin@microsoft.com', 
+        'user@ukg.com',
+        'invalid@nonexistentdomain99999.com',
+        'devesh.bhatt@ukg.com'
+      ];
+
+      console.log('🧪 Testing enhanced email verification...');
+      
+      const results = [];
+      for (const email of testEmails) {
+        try {
+          const result = await enhancedEmailVerifier.verifyEmail(email, {
+            enableSMTP: true,
+            usePythonValidator: true,
+            timeout: 10
+          });
+          results.push({
+            email,
+            ...result.finalResult,
+            method: result.finalResult?.method || 'nodejs-enhanced',
+            checks: result.checks?.length || 0
+          });
+        } catch (error) {
+          results.push({
+            email,
+            valid: false,
+            error: error.message,
+            method: 'error'
+          });
+        }
+      }
+
+      res.json({
+        success: true,
+        message: 'Enhanced verification test completed',
+        results,
+        pythonValidatorAvailable: enhancedEmailVerifier.pythonAvailable,
+        testTimestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('Enhanced Verification Test Error:', error.message);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to run enhanced verification test',
+        code: 'ENHANCED_TEST_ERROR'
+      });
+    }
+  }
+);
+
+// Download endpoints (existing ones remain the same)
 router.get('/download-emails/:filename', (req, res) => {
   try {
     const filename = req.params.filename;
@@ -372,12 +474,18 @@ router.get('/download-verification/:filename', (req, res) => {
   }
 });
 
-// Health check
+// Health check with enhanced status
 router.get('/health', (req, res) => {
   res.json({ 
     status: 'healthy', 
     timestamp: new Date().toISOString(),
-    version: '1.0.0'
+    version: '2.0.0-enhanced',
+    features: {
+      enhanced: true,
+      pythonValidator: enhancedEmailVerifier.pythonAvailable,
+      domainValidation: true,
+      corporateIntelligence: true
+    }
   });
 });
 

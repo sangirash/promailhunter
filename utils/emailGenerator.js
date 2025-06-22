@@ -1,18 +1,17 @@
-// utils/emailGenerator.js
+// utils/emailGenerator.js - REFACTORED: Company domains only
 const fs = require('fs').promises;
 const path = require('path');
 const dns = require('dns').promises;
 
 class EmailGenerator {
   constructor() {
-    // Only include common domains if they're specifically mentioned in company name
-    this.commonDomains = [
-      'gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 
-      'aol.com', 'icloud.com', 'protonmail.com', 'mail.com'
-    ];
+    // REMOVED: Common public domains - we only want company domains
+    // We should NEVER generate emails with public providers like Gmail, Yahoo, etc.
     
     // Cache for domain validation to avoid repeated DNS queries
     this.domainCache = new Map();
+    
+    console.log('🎯 EmailGenerator initialized - Company domains only mode');
   }
 
   /**
@@ -43,29 +42,15 @@ class EmailGenerator {
   }
 
   /**
-   * Generate domain variations from company name and validate them
+   * Generate ONLY company-specific domain variations from company name
    */
-  async generateValidatedDomains(companyName) {
+  async generateCompanyDomains(companyName) {
     const cleanCompany = this.cleanCompanyName(companyName);
     const potentialDomains = new Set();
     
-    // Check if company name contains common email providers
-    const lowerCompanyName = companyName.toLowerCase();
-    const mentionsCommonDomain = this.commonDomains.some(domain => 
-      lowerCompanyName.includes(domain.split('.')[0]) // e.g., "gmail" from "gmail.com"
-    );
+    console.log(`🏢 Generating domains for company: "${companyName}" (cleaned: "${cleanCompany}")`);
     
-    // If company mentions a common domain, include it
-    if (mentionsCommonDomain) {
-      this.commonDomains.forEach(domain => {
-        const provider = domain.split('.')[0];
-        if (lowerCompanyName.includes(provider)) {
-          potentialDomains.add(domain);
-        }
-      });
-    }
-    
-    // Generate company-specific domains only if cleanCompany exists
+    // Only generate company-specific domains - NO public providers
     if (cleanCompany && cleanCompany.length >= 2) {
       // Basic company domain variations
       potentialDomains.add(`${cleanCompany}.com`);
@@ -130,12 +115,15 @@ class EmailGenerator {
           potentialDomains.add(`${hyphenated}.net`);
         }
       }
+    } else {
+      console.warn(`⚠️ Company name "${companyName}" too short or invalid for domain generation`);
+      return [];
     }
     
     // Convert to array and filter out very short domains
     const domainsToValidate = Array.from(potentialDomains).filter(domain => domain.length > 4);
     
-    console.log(`Checking ${domainsToValidate.length} potential domains for ${companyName}...`);
+    console.log(`🔍 Checking ${domainsToValidate.length} potential company domains for ${companyName}...`);
     
     // Validate domains in batches to avoid overwhelming DNS servers
     const validDomains = [];
@@ -146,9 +134,12 @@ class EmailGenerator {
       const batchPromises = batch.map(async domain => {
         try {
           const isValid = await this.validateDomain(domain);
+          if (isValid) {
+            console.log(`✅ Valid company domain found: ${domain}`);
+          }
           return isValid ? domain : null;
         } catch (error) {
-          console.log(`Domain validation failed for ${domain}:`, error.message);
+          console.log(`❌ Domain validation failed for ${domain}:`, error.message);
           return null;
         }
       });
@@ -166,7 +157,16 @@ class EmailGenerator {
       }
     }
     
-    console.log(`Found ${validDomains.length} valid domains out of ${domainsToValidate.length} checked`);
+    console.log(`🎯 Found ${validDomains.length} valid company domains out of ${domainsToValidate.length} checked`);
+    
+    if (validDomains.length === 0) {
+      console.warn(`⚠️ No valid company domains found for "${companyName}". This could mean:`);
+      console.warn(`   - Company doesn't have a website/email domain`);
+      console.warn(`   - Domain uses different naming convention`);
+      console.warn(`   - DNS resolution issues`);
+      console.warn(`   - Company domain is not publicly registered`);
+    }
+    
     return validDomains;
   }
 
@@ -183,7 +183,7 @@ class EmailGenerator {
   }
 
   /**
-   * Generate comprehensive username variations (IMPROVED - no numbers prefix, no single chars)
+   * Generate comprehensive username variations (no numbers prefix, no single chars)
    */
   generateUsernames(firstName, lastName) {
     const fName = firstName.toLowerCase().trim();
@@ -192,6 +192,8 @@ class EmailGenerator {
     const lInitial = lName.charAt(0);
     
     const usernames = new Set();
+    
+    console.log(`👤 Generating username patterns for: ${firstName} ${lastName}`);
     
     // Basic combinations with different separators (minimum 2 characters)
     if (fName.length >= 2 && lName.length >= 2) {
@@ -218,7 +220,9 @@ class EmailGenerator {
     }
     
     // Double initials (only if makes sense - avoid single letters)
-    usernames.add(`${fInitial}${lInitial}`);
+    if (fInitial && lInitial) {
+      usernames.add(`${fInitial}${lInitial}`);
+    }
     
     // Reversed combinations (minimum 2 characters)
     if (fName.length >= 2 && lName.length >= 2) {
@@ -255,7 +259,7 @@ class EmailGenerator {
     }
     
     // With common numbers (SUFFIX ONLY - no prefix numbers)
-    const commonNumbers = ['1', '01', '2', '123', '2024', '2025'];
+    const commonNumbers = ['1', '01', '2', '123'];
     const basePatterns = [];
     
     if (fName.length >= 2 && lName.length >= 2) {
@@ -304,7 +308,7 @@ class EmailGenerator {
     }
     
     // Filter out invalid usernames
-    return Array.from(usernames).filter(username => 
+    const validUsernames = Array.from(usernames).filter(username => 
       username.length >= 2 && // Minimum 2 characters
       username.length <= 64 && // Email username length limit
       !username.startsWith('.') && 
@@ -315,51 +319,66 @@ class EmailGenerator {
       !username.endsWith('-') &&
       !/^\d/.test(username) // No numbers at the beginning
     );
+    
+    console.log(`📋 Generated ${validUsernames.length} username patterns`);
+    return validUsernames;
   }
 
   /**
-   * Generate all possible email combinations for validated domains only
+   * Generate email combinations for COMPANY DOMAINS ONLY
    */
   async generateEmails(firstName, lastName, companyName) {
     const usernames = this.generateUsernames(firstName, lastName);
-    const validDomains = await this.generateValidatedDomains(companyName);
+    const companyDomains = await this.generateCompanyDomains(companyName);
     
-    if (validDomains.length === 0) {
-      console.log(`Warning: No valid domains found for ${companyName}. Using common providers only.`);
-      // If no company domains are valid, use common providers as fallback
-      validDomains.push(...this.commonDomains.slice(0, 3)); // Just add top 3 common providers
+    if (companyDomains.length === 0) {
+      console.error(`❌ No valid company domains found for "${companyName}"`);
+      console.error(`❌ Cannot generate corporate email addresses without valid company domains`);
+      
+      // Return empty result - DO NOT fallback to public domains
+      return {
+        all: [],
+        company: [],
+        warnings: [
+          `No valid company domains found for "${companyName}"`,
+          'Email generation requires valid company domains',
+          'Check company name spelling or domain registration'
+        ]
+      };
     }
     
     const emails = new Set();
     
-    // Generate all combinations
+    // Generate emails ONLY for company domains
     usernames.forEach(username => {
-      validDomains.forEach(domain => {
+      companyDomains.forEach(domain => {
         emails.add(`${username}@${domain}`);
       });
     });
     
-    return Array.from(emails).sort();
+    const emailList = Array.from(emails).sort();
+    
+    console.log(`✅ Generated ${emailList.length} corporate email addresses`);
+    console.log(`🏢 Using ${companyDomains.length} valid company domains: ${companyDomains.join(', ')}`);
+    
+    return {
+      all: emailList,
+      company: emailList, // All emails are company emails now
+      companyDomains: companyDomains
+    };
   }
 
   /**
-   * Generate email data structure with metadata and domain validation info
+   * Generate email data structure with metadata (COMPANY DOMAINS ONLY)
    */
   async generateEmailData(firstName, lastName, companyName) {
-    const validDomains = await this.generateValidatedDomains(companyName);
-    const emails = await this.generateEmails(firstName, lastName, companyName);
+    const companyDomains = await this.generateCompanyDomains(companyName);
+    const emailResult = await this.generateEmails(firstName, lastName, companyName);
     const usernames = this.generateUsernames(firstName, lastName);
     
-    // Categorize emails by domain type
-    const companyEmails = emails.filter(email => {
-      const domain = email.split('@')[1];
-      return !this.commonDomains.includes(domain);
-    });
-    
-    const commonProviderEmails = emails.filter(email => {
-      const domain = email.split('@')[1];
-      return this.commonDomains.includes(domain);
-    });
+    // All emails are company emails now
+    const emails = emailResult.all || [];
+    const warnings = emailResult.warnings || [];
     
     // Group by domain for better organization
     const emailsByDomain = {};
@@ -378,23 +397,25 @@ class EmailGenerator {
         companyName,
         generatedAt: new Date().toISOString(),
         totalEmails: emails.length,
-        companyEmails: companyEmails.length,
-        commonProviderEmails: commonProviderEmails.length,
-        totalDomains: validDomains.length,
+        companyEmails: emails.length, // All emails are company emails
+        commonProviderEmails: 0, // We don't generate these anymore
+        totalDomains: companyDomains.length,
         totalUsernames: usernames.length,
-        validatedDomains: validDomains,
-        domainValidationEnabled: true
+        validatedDomains: companyDomains,
+        domainValidationEnabled: true,
+        companyDomainsOnly: true, // NEW FLAG
+        warnings: warnings
       },
       emails: {
         all: emails,
-        company: companyEmails,
-        commonProviders: commonProviderEmails,
+        company: emails, // All emails are company emails
+        commonProviders: [], // Empty - we don't generate these
         byDomain: emailsByDomain
       },
       domains: {
-        all: validDomains,
-        company: validDomains.filter(d => !this.commonDomains.includes(d)),
-        commonProviders: validDomains.filter(d => this.commonDomains.includes(d)),
+        all: companyDomains,
+        company: companyDomains, // Same as all
+        commonProviders: [], // Empty
         validated: true
       },
       patterns: {
@@ -403,8 +424,8 @@ class EmailGenerator {
           basicCombinations: usernames.filter(u => u.includes('.')).length,
           withNumbers: usernames.filter(u => /\d/.test(u)).length,
           singleNames: usernames.filter(u => !u.includes('.') && !u.includes('_') && !u.includes('-')).length,
-          minLength: Math.min(...usernames.map(u => u.length)),
-          maxLength: Math.max(...usernames.map(u => u.length))
+          minLength: usernames.length > 0 ? Math.min(...usernames.map(u => u.length)) : 0,
+          maxLength: usernames.length > 0 ? Math.max(...usernames.map(u => u.length)) : 0
         }
       }
     };
@@ -418,7 +439,7 @@ class EmailGenerator {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const cleanName = `${emailData.metadata.firstName}_${emailData.metadata.lastName}`.toLowerCase();
       const cleanCompany = emailData.metadata.companyName.toLowerCase().replace(/[^a-z0-9]/g, '');
-      filename = `emails_${cleanName}_${cleanCompany}_${timestamp}.json`;
+      filename = `corporate_emails_${cleanName}_${cleanCompany}_${timestamp}.json`;
     }
     
     try {
@@ -430,13 +451,16 @@ class EmailGenerator {
       const filePath = path.join(outputDir, filename);
       await fs.writeFile(filePath, JSON.stringify(emailData, null, 2), 'utf8');
       
+      console.log(`💾 Saved corporate email data to: ${filename}`);
+      
       return {
         success: true,
         filePath,
         filename,
         totalEmails: emailData.emails.all.length,
         companyEmails: emailData.emails.company.length,
-        validatedDomains: emailData.metadata.validatedDomains
+        validatedDomains: emailData.metadata.validatedDomains,
+        companyDomainsOnly: true
       };
     } catch (error) {
       throw new Error(`Failed to save email file: ${error.message}`);
@@ -444,15 +468,28 @@ class EmailGenerator {
   }
 
   /**
-   * Main function to generate and save emails
+   * Main function to generate and save emails (COMPANY DOMAINS ONLY)
    */
   async processContact(firstName, lastName, companyName, saveToFile = true) {
     try {
+      console.log(`🎯 Processing contact: ${firstName} ${lastName} at ${companyName} (Company domains only)`);
+      
       const emailData = await this.generateEmailData(firstName, lastName, companyName);
       
       let fileInfo = null;
       if (saveToFile) {
         fileInfo = await this.saveToFile(emailData);
+      }
+      
+      // Log summary
+      if (emailData.emails.all.length > 0) {
+        console.log(`✅ Successfully generated ${emailData.emails.all.length} corporate emails`);
+        console.log(`🏢 Company domains used: ${emailData.metadata.validatedDomains.join(', ')}`);
+      } else {
+        console.warn(`⚠️ No emails generated for ${companyName}`);
+        if (emailData.metadata.warnings) {
+          emailData.metadata.warnings.forEach(warning => console.warn(`   - ${warning}`));
+        }
       }
       
       return {
@@ -461,7 +498,7 @@ class EmailGenerator {
         file: fileInfo
       };
     } catch (error) {
-      throw new Error(`Email generation failed: ${error.message}`);
+      throw new Error(`Corporate email generation failed: ${error.message}`);
     }
   }
 }
