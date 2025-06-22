@@ -1,211 +1,395 @@
-/* Enhanced styles for domain input guidance */
+/* Additional styles to add to public/css/styles.css */
 
-/* Input help styling */
-.input-help {
-    margin-top: 8px;
-    padding: 12px;
-    background: linear-gradient(135deg, #e3f2fd 0%, #f8f9fa 100%);
-    border-radius: 8px;
-    border-left: 4px solid #2196f3;
-}
-
-.input-help small {
-    color: #37474f;
-    line-height: 1.4;
-    display: block;
-}
-
-.input-help code {
-    background: #1976d2;
-    color: white;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-family: 'Courier New', monospace;
-    font-size: 0.85em;
-    font-weight: 500;
-}
-
-/* Footer info sections */
-.info-section {
-    margin-top: 40px;
-    padding-top: 30px;
-    border-top: 2px solid #e9ecef;
-}
-
-.features-info, .examples-info, .tech-info {
-    margin: 25px 0;
-    padding: 20px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-    border: 1px solid #dee2e6;
-}
-
-.features-info h3, .examples-info h3, .tech-info h3 {
-    color: #495057;
-    margin-bottom: 15px;
-    font-size: 1.1rem;
+/* Action buttons styling */
+.action-buttons {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    gap: 15px;
+    margin-top: 20px;
+    flex-wrap: wrap;
 }
 
-.features-info ul, .tech-info ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.features-info li, .tech-info li {
-    padding: 8px 0;
-    border-bottom: 1px solid #f1f3f4;
-    color: #5f6368;
-}
-
-.features-info li:last-child, .tech-info li:last-child {
-    border-bottom: none;
-}
-
-.features-info strong, .tech-info strong {
-    color: #1976d2;
-    font-weight: 600;
-}
-
-/* Example grid styling */
-.example-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 12px;
-    margin-top: 15px;
-}
-
-.example-item {
-    padding: 12px;
-    border-radius: 8px;
-    background: white;
-    border: 1px solid #e1e5e9;
-    font-size: 0.9rem;
-}
-
-.example-item strong {
-    display: block;
-    margin-bottom: 4px;
-    font-weight: 600;
-}
-
-.example-item strong:contains("✅") {
-    color: #2e7d32;
-}
-
-.example-item strong:contains("❌") {
-    color: #d32f2f;
-}
-
-.example-item code {
-    background: #f5f5f5;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-family: 'Courier New', monospace;
-    color: #37474f;
-    border: 1px solid #e0e0e0;
-}
-
-/* Enhanced form styling for domain input */
-.form-group {
-    margin-bottom: 20px;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 600;
-    color: #495057;
-    font-size: 0.95rem;
-}
-
-.form-group input {
-    width: 100%;
-    padding: 12px 16px;
-    border: 2px solid #dee2e6;
-    border-radius: 8px;
-    font-size: 1rem;
-    transition: all 0.3s ease;
-    background: white;
-}
-
-.form-group input:focus {
-    outline: none;
-    border-color: #2196f3;
-    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
-    background: #fafafa;
-}
-
-.form-group input::placeholder {
-    color: #9e9e9e;
-    font-style: italic;
-}
-
-/* Enhanced error messages */
-.error-message {
-    display: block;
-    color: #d32f2f;
-    font-size: 0.85rem;
-    margin-top: 6px;
-    font-weight: 500;
-    min-height: 20px;
-}
-
-/* Button styling */
-.submit-btn {
-    width: 100%;
+.action-btn {
+    flex: 1;
+    min-width: 200px;
     padding: 14px 24px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
     border: none;
     border-radius: 10px;
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
+    text-align: center;
 }
 
-.submit-btn:hover {
+.generate-btn {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+}
+
+.verify-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.action-btn:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
 }
 
-.submit-btn:active {
+.action-btn:active:not(:disabled) {
     transform: translateY(0);
 }
 
-.submit-btn.loading {
+.action-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.action-btn.loading {
     pointer-events: none;
     opacity: 0.8;
 }
 
-.spinner {
+.action-description {
+    font-size: 0.85rem;
+    opacity: 0.9;
+    margin-top: 4px;
+    font-weight: normal;
+}
+
+/* Domain validator styles */
+.domain-validator {
+    margin-top: 10px;
+    padding: 10px;
+    background: #f0f8ff;
+    border-radius: 8px;
+    font-size: 0.9rem;
     display: none;
+    transition: all 0.3s ease;
 }
 
-.submit-btn.loading .btn-text {
-    opacity: 0.7;
+.domain-validator.show {
+    display: block;
 }
 
-.submit-btn.loading .spinner {
+.domain-validator.valid {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+}
+
+.domain-validator.invalid {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+}
+
+.domain-validator.checking {
+    background: #fff3cd;
+    border: 1px solid #ffeeba;
+}
+
+.domain-validator.error {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+}
+
+.validation-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.validation-icon {
+    font-size: 1.2rem;
+}
+
+/* Progress stages */
+.progress-stages {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.progress-stages .stage {
+    padding: 10px;
+    background: #f5f5f5;
+    border-radius: 6px;
+    color: #666;
+    transition: all 0.3s ease;
+}
+
+.progress-stages .stage.active {
+    background: #e3f2fd;
+    color: #1976d2;
+    font-weight: 500;
+}
+
+/* Verification stats cards */
+.verification-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.stat-card {
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    background: white;
+    border: 2px solid #e0e0e0;
+}
+
+.stat-card.valid {
+    border-color: #4caf50;
+    background: #f1f8f4;
+}
+
+.stat-card.invalid {
+    border-color: #f44336;
+    background: #fef1f0;
+}
+
+.stat-card.uncertain {
+    border-color: #ff9800;
+    background: #fff8f0;
+}
+
+.stat-card h4 {
+    margin: 0 0 10px 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: bold;
+    margin: 5px 0;
+}
+
+.stat-percentage {
+    font-size: 1.1rem;
+    opacity: 0.8;
+}
+
+/* Quick stats */
+.verification-summary-quick {
+    display: flex;
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.quick-stat {
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.quick-stat.valid {
+    background: #d4edda;
+    color: #155724;
+}
+
+.quick-stat.invalid {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.quick-stat.uncertain {
+    background: #fff3cd;
+    color: #856404;
+}
+
+/* Verified emails container */
+.verified-emails-container {
+    max-height: 400px;
+    overflow-y: auto;
+    margin-top: 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.verified-email-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    margin: 5px 0;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border-left: 3px solid #28a745;
+}
+
+.verified-email-item:hover {
+    background: #e9ecef;
+}
+
+.email-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.email-address {
+    font-family: 'Courier New', monospace;
+    font-weight: 500;
+}
+
+.email-status {
+    font-size: 0.85rem;
+    color: #28a745;
+}
+
+.email-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.email-actions button {
+    padding: 4px 8px;
+    font-size: 0.85rem;
+    border: 1px solid #dee2e6;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.email-actions button:hover {
+    background: #f8f9fa;
+    border-color: #adb5bd;
+}
+
+/* Copy buttons section */
+.copy-section {
+    margin-top: 20px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.copy-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.copy-btn {
+    padding: 10px 20px;
+    border: 1px solid #dee2e6;
+    background: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.copy-btn:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+}
+
+.copy-btn.primary {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.copy-btn.primary:hover {
+    background: #0056b3;
+    border-color: #0056b3;
+}
+
+/* Quick actions */
+.quick-actions {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+}
+
+.copy-all-btn, .verify-now-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.copy-all-btn {
+    background: #6c757d;
+    color: white;
+}
+
+.copy-all-btn:hover {
+    background: #5a6268;
+}
+
+.verify-now-btn {
+    background: #667eea;
+    color: white;
+}
+
+.verify-now-btn:hover {
+    background: #5a67d8;
+}
+
+/* Download section */
+.download-section {
+    margin: 20px 0;
+    text-align: center;
+}
+
+.download-btn {
     display: inline-block;
-    margin-left: 10px;
+    padding: 12px 24px;
+    background: #28a745;
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.2s ease;
 }
 
-.spinner::after {
-    content: '';
-    display: inline-block;
+.download-btn:hover {
+    background: #218838;
+    transform: translateY(-1px);
+}
+
+/* Mailbox stats */
+.mailbox-stats {
+    margin-top: 15px;
+    padding: 15px;
+    background: #e3f2fd;
+    border-radius: 8px;
+    border-left: 4px solid #2196f3;
+}
+
+.mailbox-stats p {
+    margin: 5px 0;
+}
+
+/* Spinner animation */
+.action-btn .spinner {
+    display: none;
     width: 16px;
     height: 16px;
     border: 2px solid rgba(255, 255, 255, 0.3);
     border-top: 2px solid white;
     border-radius: 50%;
     animation: spin 1s linear infinite;
+    margin-left: 10px;
+    vertical-align: middle;
+}
+
+.action-btn.loading .spinner {
+    display: inline-block;
 }
 
 @keyframes spin {
@@ -213,153 +397,7 @@
     100% { transform: rotate(360deg); }
 }
 
-/* Button info styling */
-.button-info {
-    text-align: center;
-    margin-top: 12px;
-}
-
-.button-info p {
-    margin: 0;
-    color: #6c757d;
-    font-style: italic;
-    font-size: 0.9rem;
-}
-
-/* Container and layout */
-.container {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 20px;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-header {
-    text-align: center;
-    margin-bottom: 30px;
-    padding: 20px 0;
-}
-
-header h1 {
-    color: #2c3e50;
-    font-size: 2.5rem;
-    font-weight: 700;
-    margin-bottom: 8px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-}
-
-header p {
-    color: #5f6368;
-    font-size: 1.1rem;
-    margin: 0;
-}
-
-/* Contact form */
-.contact-form {
-    background: white;
-    padding: 30px;
-    border-radius: 15px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    border: 1px solid #e9ecef;
-    margin-bottom: 20px;
-}
-
-/* Results container */
-.result-container {
-    background: white;
-    padding: 30px;
-    border-radius: 15px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    border: 1px solid #e9ecef;
-    margin-top: 20px;
-}
-
-.result-container.hidden {
-    display: none;
-}
-
-.result-container.success {
-    border-left: 5px solid #28a745;
-}
-
-.result-container.error {
-    border-left: 5px solid #dc3545;
-}
-
-/* Domain validation status */
-.domain-status {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 8px;
-    border-radius: 12px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    margin-left: 8px;
-}
-
-.domain-status.valid {
-    background: #d4edda;
-    color: #155724;
-}
-
-.domain-status.invalid {
-    background: #f8d7da;
-    color: #721c24;
-}
-
-.domain-status.checking {
-    background: #fff3cd;
-    color: #856404;
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-    .container {
-        padding: 15px;
-    }
-    
-    header h1 {
-        font-size: 2rem;
-    }
-    
-    .contact-form {
-        padding: 20px;
-    }
-    
-    .example-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .info-section {
-        margin-top: 30px;
-    }
-    
-    .features-info, .examples-info, .tech-info {
-        padding: 15px;
-        margin: 15px 0;
-    }
-}
-
-@media (max-width: 480px) {
-    header h1 {
-        font-size: 1.75rem;
-    }
-    
-    header p {
-        font-size: 1rem;
-    }
-    
-    .submit-btn {
-        font-size: 1rem;
-        padding: 12px 20px;
-    }
-}
-
-/* Copy to clipboard feedback */
+/* Copy feedback notification */
 .copy-feedback {
     position: fixed;
     top: 20px;
@@ -372,6 +410,10 @@ header p {
     z-index: 1000;
     font-weight: 500;
     animation: slideInOut 3s ease-in-out;
+}
+
+.copy-feedback.error {
+    background: #dc3545;
 }
 
 @keyframes slideInOut {
@@ -389,7 +431,90 @@ header p {
     }
 }
 
-/* Email list styling */
+/* Verification comparison table */
+.verification-comparison table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.verification-comparison th,
+.verification-comparison td {
+    padding: 10px;
+    text-align: left;
+    border: 1px solid #ddd;
+}
+
+.verification-comparison th {
+    background: #f5f5f5;
+    font-weight: 600;
+}
+
+.verification-comparison tr:nth-child(even) {
+    background: #f9f9f9;
+}
+
+/* No results message */
+.no-results {
+    padding: 30px;
+    text-align: center;
+    background: #f8f9fa;
+    border-radius: 8px;
+    color: #6c757d;
+}
+
+.no-results ul {
+    text-align: left;
+    max-width: 400px;
+    margin: 20px auto 0;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    .action-buttons {
+        flex-direction: column;
+    }
+    
+    .action-btn {
+        width: 100%;
+        min-width: auto;
+    }
+    
+    .verification-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .copy-buttons {
+        flex-direction: column;
+    }
+    
+    .copy-btn {
+        width: 100%;
+    }
+    
+    .quick-actions {
+        flex-direction: column;
+    }
+    
+    .verification-comparison {
+        overflow-x: auto;
+    }
+    
+    .verification-comparison table {
+        min-width: 500px;
+    }
+}
+
+/* Loading state improvements */
+.btn-text {
+    transition: opacity 0.3s ease;
+}
+
+.action-btn.loading .btn-text {
+    opacity: 0.7;
+}
+
+/* Email list improvements */
 .email-list {
     list-style: none;
     padding: 0;
@@ -407,6 +532,7 @@ header p {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    transition: all 0.2s ease;
 }
 
 .email-list li:hover {
@@ -414,46 +540,17 @@ header p {
     border-left-color: #2196f3;
 }
 
-/* Verification progress styles */
-.verification-progress {
-    text-align: center;
-    padding: 30px;
+.copy-single-btn {
+    padding: 2px 8px;
+    font-size: 0.8rem;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
-.progress-info {
-    margin-top: 20px;
-}
-
-.progress-animation {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    margin-top: 20px;
-}
-
-.progress-dot {
-    width: 12px;
-    height: 12px;
-    background: #667eea;
-    border-radius: 50%;
-    animation: pulse 1.5s ease-in-out infinite;
-}
-
-.progress-dot:nth-child(2) {
-    animation-delay: 0.3s;
-}
-
-.progress-dot:nth-child(3) {
-    animation-delay: 0.6s;
-}
-
-@keyframes pulse {
-    0%, 80%, 100% {
-        transform: scale(0.8);
-        opacity: 0.5;
-    }
-    40% {
-        transform: scale(1.2);
-        opacity: 1;
-    }
+.copy-single-btn:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
 }

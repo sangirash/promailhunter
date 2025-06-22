@@ -676,6 +676,9 @@ router.get('/download-verification/:filename', (req, res) => {
 // Add to routes/api.js
 
 // Domain validation endpoint
+// Add this endpoint to your routes/api.js file
+
+// Domain validation endpoint
 router.post('/validate-domain',
   limiter,
   async (req, res) => {
