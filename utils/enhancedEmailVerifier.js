@@ -1,4 +1,4 @@
-// utils/enhancedEmailVerifier.js - REFACTORED: Company domains focus - COMPLETE VERSION
+// utils/enhancedEmailVerifier.js - UPDATED: Focus on user-provided domains
 const dns = require('dns').promises;
 const net = require('net');
 const fs = require('fs').promises;
@@ -20,7 +20,7 @@ class EnhancedEmailVerifier {
       'ibm.com', 'intel.com', 'nvidia.com', 'cisco.com', 'hp.com'
     ];
     
-    // Known email patterns for major companies
+    // Known email patterns for major companies (expandable for user domains)
     this.knownValidPatterns = {
       'ukg.com': ['first.last', 'first', 'last', 'firstlast', 'first_last'],
       'microsoft.com': ['first.last', 'first', 'firstlast', 'first_last'],
@@ -39,26 +39,78 @@ class EnhancedEmailVerifier {
       'cisco.com': ['first.last', 'first', 'firstlast']
     };
 
-    // PUBLIC DOMAINS TO REJECT - We should never verify these in corporate context
+    // PUBLIC DOMAINS TO REJECT - Not relevant for user-specific domains but keep for safety
     this.publicDomains = [
       'gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'aol.com',
       'icloud.com', 'protonmail.com', 'mail.com', 'live.com', 'msn.com',
       'yandex.com', 'mail.ru', 'qq.com', '163.com', 'sina.com'
     ];
 
+    // Dynamic pattern learning for user domains
+    this.learnedPatterns = new Map();
+
     // Verify Python email-validator is available
     this.pythonAvailable = false;
     this.checkPythonValidator();
     
-    console.log('🎯 Enhanced Email Verifier - Corporate domains focus mode');
+    console.log('🎯 Enhanced Email Verifier - User domain focus mode');
   }
 
   /**
-   * Check if an email uses a public domain (should be rejected for corporate email finding)
+   * Check if an email uses a public domain (warn but don't reject since user might intentionally want to verify)
    */
   isPublicDomain(email) {
     const domain = email.split('@')[1]?.toLowerCase();
     return this.publicDomains.includes(domain);
+  }
+
+  /**
+   * Learn patterns dynamically for user-provided domains
+   */
+  learnPatternForDomain(domain, email) {
+    const username = email.split('@')[0].toLowerCase();
+    const lowerDomain = domain.toLowerCase();
+    
+    if (!this.learnedPatterns.has(lowerDomain)) {
+      this.learnedPatterns.set(lowerDomain, new Set());
+    }
+    
+    const patterns = this.learnedPatterns.get(lowerDomain);
+    
+    // Detect pattern type
+    if (/^[a-z]+\.[a-z]+$/.test(username)) {
+      patterns.add('first.last');
+    } else if (/^[a-z]+_[a-z]+$/.test(username)) {
+      patterns.add('first_last');
+    } else if (/^[a-z]+[a-z]+$/.test(username) && username.length >= 4) {
+      patterns.add('firstlast');
+    } else if (/^[a-z]+$/.test(username) && username.length >= 2 && username.length <= 10) {
+      patterns.add('first');
+    } else if (/^[a-z]\.[a-z]+$/.test(username)) {
+      patterns.add('initial.last');
+    }
+    
+    console.log(`📚 Learned pattern for ${lowerDomain}: ${Array.from(patterns).join(', ')}`);
+  }
+
+  /**
+   * Get known or learned patterns for a domain
+   */
+  getPatternsForDomain(domain) {
+    const lowerDomain = domain.toLowerCase();
+    
+    // Check predefined patterns first
+    if (this.knownValidPatterns[lowerDomain]) {
+      return this.knownValidPatterns[lowerDomain];
+    }
+    
+    // Check learned patterns
+    if (this.learnedPatterns.has(lowerDomain)) {
+      return Array.from(this.learnedPatterns.get(lowerDomain));
+    }
+    
+    // Default business patterns for unknown domains
+    return ['first.last', 'first', 'firstlast', 'first_last', 'initial.last'];
   }
 
   /**
@@ -80,7 +132,7 @@ class EnhancedEmailVerifier {
   }
 
   /**
-   * Run Python email validator with corporate focus
+   * Run Python email validator (updated for user domains)
    */
   async runPythonValidator(email, options = {}) {
     return new Promise((resolve, reject) => {
@@ -101,36 +153,25 @@ try:
             print(json.dumps({"success": True, "test": True}))
             return
         
-        # Check if this is a public domain (reject for corporate email finding)
+        # For user-provided domains, we validate all domains (including public ones)
+        # but add a warning for public domains
+        domain = email.split('@')[1].lower() if '@' in email else ''
         public_domains = [
             'gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'aol.com',
             'icloud.com', 'protonmail.com', 'mail.com', 'live.com', 'msn.com'
         ]
         
-        domain = email.split('@')[1].lower() if '@' in email else ''
-        if domain in public_domains:
-            response = {
-                'success': True,
-                'valid': False,
-                'error': f'Public domain {domain} not allowed for corporate email verification',
-                'error_type': 'public_domain',
-                'confidence': 'high',
-                'method': 'python-email-validator',
-                'reasons': [f'Rejected public domain: {domain}'],
-                'corporateEmailOnly': True
-            }
-            print(json.dumps(response))
-            return
+        is_public_domain = domain in public_domains
         
         try:
-            # Configure validation options for corporate emails
+            # Configure validation options
             validation_options = {
                 'check_deliverability': options.get('check_deliverability', True),
                 'allow_smtputf8': options.get('allow_smtputf8', True),
-                'allow_empty_local': False,  # Never allow empty local for corporate
+                'allow_empty_local': False,
                 'allow_quoted_local': options.get('allow_quoted_local', True),
-                'allow_domain_literal': False,  # Rarely used in corporate
-                'allow_display_name': False,  # Not relevant for verification
+                'allow_domain_literal': False,
+                'allow_display_name': False,
                 'test_environment': options.get('test_environment', False),
                 'globally_deliverable': options.get('globally_deliverable', True),
                 'timeout': options.get('timeout', 15)
@@ -139,7 +180,7 @@ try:
             # Validate the email
             result = validate_email(email, **validation_options)
             
-            # Convert result to dict with corporate focus
+            # Convert result to dict
             response = {
                 'success': True,
                 'valid': True,
@@ -156,9 +197,13 @@ try:
                 'confidence': 'high',
                 'method': 'python-email-validator',
                 'checks': ['syntax', 'format', 'domain', 'deliverability'],
-                'reasons': ['Passed comprehensive Python email-validator checks for corporate email'],
-                'corporateEmailOnly': True
+                'reasons': ['Passed comprehensive Python email-validator checks'],
+                'isPublicDomain': is_public_domain,
+                'userDomainFocus': True
             }
+            
+            if is_public_domain:
+                response['warnings'] = [f'Note: {domain} is a public email provider']
             
             print(json.dumps(response))
             
@@ -170,8 +215,9 @@ try:
                 'error_type': 'syntax',
                 'confidence': 'high',
                 'method': 'python-email-validator',
-                'reasons': [f'Corporate email syntax error: {str(e)}'],
-                'corporateEmailOnly': True
+                'reasons': [f'Email syntax error: {str(e)}'],
+                'isPublicDomain': is_public_domain,
+                'userDomainFocus': True
             }
             print(json.dumps(response))
             
@@ -183,8 +229,9 @@ try:
                 'error_type': 'deliverability',
                 'confidence': 'high',
                 'method': 'python-email-validator',
-                'reasons': [f'Corporate email deliverability error: {str(e)}'],
-                'corporateEmailOnly': True
+                'reasons': [f'Email deliverability error: {str(e)}'],
+                'isPublicDomain': is_public_domain,
+                'userDomainFocus': True
             }
             print(json.dumps(response))
             
@@ -196,8 +243,9 @@ try:
                 'error_type': 'validation',
                 'confidence': 'high',
                 'method': 'python-email-validator',
-                'reasons': [f'Corporate email validation error: {str(e)}'],
-                'corporateEmailOnly': True
+                'reasons': [f'Email validation error: {str(e)}'],
+                'isPublicDomain': is_public_domain,
+                'userDomainFocus': True
             }
             print(json.dumps(response))
             
@@ -253,7 +301,7 @@ except Exception as e:
   }
 
   /**
-   * Enhanced email format validation with public domain rejection
+   * Enhanced email format validation (accepts user domains including public ones)
    */
   validateEmailFormat(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -268,41 +316,26 @@ except Exception as e:
       return { valid: false, reason: 'Domain length invalid' };
     }
     
-    // REJECT public domains for corporate email verification
-    if (this.isPublicDomain(email)) {
-      return { 
-        valid: false, 
-        reason: `Public domain ${domain.toLowerCase()} not allowed for corporate email verification`,
-        isPublicDomain: true
-      };
-    }
+    // Note if it's a public domain but don't reject
+    const isPublicDomain = this.isPublicDomain(email);
     
-    return { valid: true };
+    return { 
+      valid: true, 
+      isPublicDomain,
+      warning: isPublicDomain ? `Public domain ${domain.toLowerCase()} detected` : null
+    };
   }
 
   /**
-   * Check if email pattern matches known corporate patterns
+   * Check if email pattern matches known patterns for the domain
    */
   checkAgainstKnownPatterns(email) {
     const [username, domain] = email.split('@');
     const lowerDomain = domain.toLowerCase();
-    
-    // Reject public domains
-    if (this.publicDomains.includes(lowerDomain)) {
-      return { 
-        isKnownPattern: false, 
-        confidence: 'high',
-        reason: 'Public domain rejected',
-        isPublicDomain: true
-      };
-    }
-    
-    if (!this.knownValidPatterns[lowerDomain]) {
-      return { isKnownPattern: false, confidence: 'unknown' };
-    }
-    
-    const patterns = this.knownValidPatterns[lowerDomain];
     const lowerUsername = username.toLowerCase();
+    
+    // Get patterns for this domain (known or learned)
+    const patterns = this.getPatternsForDomain(lowerDomain);
     
     for (const pattern of patterns) {
       switch (pattern) {
@@ -331,14 +364,24 @@ except Exception as e:
             return { isKnownPattern: true, confidence: 'medium', pattern: 'last' };
           }
           break;
+        case 'initial.last':
+          if (/^[a-z]\.[a-z]+$/.test(lowerUsername)) {
+            return { isKnownPattern: true, confidence: 'high', pattern: 'initial.last' };
+          }
+          break;
       }
+    }
+    
+    // Learn from this email if it looks like a business pattern
+    if (/^[a-z]+\.[a-z]+$/.test(lowerUsername) || /^[a-z]+_[a-z]+$/.test(lowerUsername)) {
+      this.learnPatternForDomain(domain, email);
     }
     
     return { isKnownPattern: false, confidence: 'low' };
   }
 
   /**
-   * DNS MX Record Check
+   * DNS MX Record Check (updated for user domains)
    */
   async checkMXRecord(email) {
     try {
@@ -347,73 +390,62 @@ except Exception as e:
         return { valid: false, method: 'mx', error: 'Invalid email format' };
       }
 
-      // Reject public domains
-      if (this.publicDomains.includes(domain.toLowerCase())) {
-        return {
-          valid: false,
-          method: 'mx',
-          error: `Public domain ${domain} not allowed for corporate email verification`,
-          isPublicDomain: true
-        };
-      }
-
+      const isPublicDomain = this.publicDomains.includes(domain.toLowerCase());
       const mxRecords = await dns.resolveMx(domain);
       
       return {
         valid: mxRecords && mxRecords.length > 0,
         method: 'mx',
         mxRecords: mxRecords?.map(mx => ({ exchange: mx.exchange, priority: mx.priority })),
-        confidence: 'low',
-        corporateDomain: !this.publicDomains.includes(domain.toLowerCase())
+        confidence: 'medium',
+        isPublicDomain,
+        warning: isPublicDomain ? `${domain} is a public email provider` : null
       };
     } catch (error) {
       return {
         valid: false,
         method: 'mx',
         error: error.code || error.message,
-        confidence: 'low'
+        confidence: 'high'
       };
     }
   }
 
   /**
-   * Enhanced SMTP Handshake with corporate focus
+   * Enhanced SMTP Handshake (updated for user domains)
    */
   async checkSMTPHandshake(email) {
     const domain = email.split('@')[1];
     const lowerDomain = domain.toLowerCase();
     
-    // Reject public domains
-    if (this.publicDomains.includes(lowerDomain)) {
-      return {
-        valid: false,
-        method: 'smtp',
-        error: `Public domain ${domain} not allowed for corporate email verification`,
-        confidence: 'high',
-        isPublicDomain: true,
-        note: 'Public domains are not verified in corporate email context'
-      };
-    }
+    const isPublicDomain = this.publicDomains.includes(lowerDomain);
+    const isCorporateDomain = this.corporateDomainsWithStrictSecurity.includes(lowerDomain);
     
-    // Handle corporate domains that block SMTP
-    if (this.corporateDomainsWithStrictSecurity.includes(lowerDomain)) {
+    // Handle domains that typically block SMTP
+    if (isCorporateDomain) {
       return {
-        valid: false,
+        valid: null, // null means inconclusive, not invalid
         method: 'smtp',
-        error: 'Corporate domain blocks SMTP verification',
+        error: 'Corporate domain likely blocks SMTP verification',
         confidence: 'unknown',
         corporateBlocked: true,
-        note: 'This corporate domain typically blocks automated verification attempts'
+        note: 'This domain typically blocks automated verification attempts for security'
       };
+    }
+
+    // Note if it's a public domain but still verify
+    if (isPublicDomain) {
+      console.log(`⚠️ Verifying public domain: ${domain}`);
     }
 
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
         resolve({
-          valid: false,
+          valid: null, // Timeout doesn't mean invalid
           method: 'smtp',
           error: 'Timeout',
-          confidence: 'unknown'
+          confidence: 'unknown',
+          isPublicDomain
         });
       }, this.smtpTimeout);
 
@@ -425,13 +457,14 @@ except Exception as e:
               valid: false,
               method: 'smtp',
               error: 'No MX record found',
-              confidence: 'medium'
+              confidence: 'high',
+              isPublicDomain
             });
           }
 
           const client = new net.Socket();
           let step = 0;
-          let result = { valid: false, method: 'smtp', confidence: 'medium' };
+          let result = { valid: false, method: 'smtp', confidence: 'medium', isPublicDomain };
 
           client.setTimeout(this.smtpTimeout);
           
@@ -483,12 +516,12 @@ except Exception as e:
                   result.confidence = 'high';
                   result.smtpResponse = response.trim();
                 } else if (response.includes('421') || response.includes('450') || response.includes('451')) {
-                  result.valid = false;
+                  result.valid = null; // Temporary failure - inconclusive
                   result.confidence = 'unknown';
                   result.smtpResponse = response.trim();
                   result.temporary = true;
                 } else {
-                  result.valid = false;
+                  result.valid = null; // Other responses - inconclusive
                   result.confidence = 'unknown';
                   result.smtpResponse = response.trim();
                 }
@@ -504,6 +537,7 @@ except Exception as e:
 
           client.on('error', (err) => {
             result.error = err.message;
+            result.valid = null; // Error doesn't mean invalid
             if (err.code === 'ECONNREFUSED') {
               result.note = 'SMTP server refused connection (may block verification)';
             }
@@ -512,6 +546,7 @@ except Exception as e:
 
           client.on('timeout', () => {
             result.error = 'SMTP timeout';
+            result.valid = null; // Timeout doesn't mean invalid
             result.note = 'Server may be blocking automated verification';
             client.destroy();
           });
@@ -524,17 +559,18 @@ except Exception as e:
         .catch(err => {
           clearTimeout(timeout);
           resolve({
-            valid: false,
+            valid: null, // DNS error doesn't mean email is invalid
             method: 'smtp',
             error: err.message,
-            confidence: 'medium'
+            confidence: 'unknown',
+            isPublicDomain
           });
         });
     });
   }
 
   /**
-   * Main enhanced verification method with corporate focus
+   * Main enhanced verification method (updated for user domains)
    */
   async verifyEmail(email, options = {}) {
     const results = {
@@ -545,29 +581,28 @@ except Exception as e:
         valid: false,
         confidence: 'unknown',
         reasons: [],
-        corporateEmailOnly: true
+        userDomainFocus: true
       }
     };
 
     try {
-      console.log(`🔍 Corporate email verification for: ${email}`);
+      console.log(`🔍 Enhanced email verification for: ${email}`);
       
-      // Step 1: Enhanced format validation with public domain rejection
+      // Step 1: Enhanced format validation
       const formatCheck = this.validateEmailFormat(email);
       if (!formatCheck.valid) {
         results.finalResult.reasons.push(formatCheck.reason);
-        if (formatCheck.isPublicDomain) {
-          results.finalResult.confidence = 'high';
-          results.finalResult.isPublicDomain = true;
-          results.finalResult.reasons.push('Public domains not allowed for corporate email verification');
-        }
         return results;
+      }
+      
+      if (formatCheck.warning) {
+        results.finalResult.warnings = [formatCheck.warning];
       }
 
       // Step 2: Try Python email-validator first (if available)
       if (this.pythonAvailable && options.usePythonValidator !== false) {
         try {
-          console.log(`🐍 Using Python email-validator for corporate verification: ${email}`);
+          console.log(`🐍 Using Python email-validator for: ${email}`);
           const pythonResult = await this.runPythonValidator(email, {
             check_deliverability: options.enableDeliverability !== false,
             allow_smtputf8: options.allowUTF8 !== false,
@@ -589,7 +624,9 @@ except Exception as e:
               smtputf8: pythonResult.smtputf8,
               mx: pythonResult.mx,
               mx_fallback_type: pythonResult.mx_fallback_type,
-              note: 'Validated using Python email-validator library for corporate emails'
+              isPublicDomain: pythonResult.isPublicDomain,
+              warnings: pythonResult.warnings,
+              note: 'Validated using Python email-validator library'
             });
 
             // If Python validation is decisive, use it
@@ -607,26 +644,18 @@ except Exception as e:
         }
       }
 
-      // Step 3: Fallback to Node.js validation with corporate focus
-      console.log(`🟡 Using Node.js corporate email validation for: ${email}`);
+      // Step 3: Fallback to Node.js validation
+      console.log(`🟡 Using Node.js email validation for: ${email}`);
 
-      // Check against known patterns for corporate domains
+      // Check against known patterns
       const patternCheck = this.checkAgainstKnownPatterns(email);
-      if (patternCheck.isPublicDomain) {
-        results.finalResult.valid = false;
-        results.finalResult.confidence = 'high';
-        results.finalResult.isPublicDomain = true;
-        results.finalResult.reasons.push('Public domain rejected for corporate email verification');
-        return results;
-      }
-      
       if (patternCheck.isKnownPattern) {
         results.checks.push({
           valid: true,
           method: 'pattern',
           confidence: patternCheck.confidence,
           pattern: patternCheck.pattern,
-          note: 'Matches known corporate email pattern'
+          note: 'Matches known email pattern for this domain'
         });
       }
 
@@ -634,51 +663,27 @@ except Exception as e:
       const mxCheck = await this.checkMXRecord(email);
       results.checks.push(mxCheck);
       
-      if (mxCheck.isPublicDomain) {
-        results.finalResult.valid = false;
-        results.finalResult.confidence = 'high';
-        results.finalResult.isPublicDomain = true;
-        results.finalResult.reasons.push('Public domain rejected for corporate email verification');
-        return results;
-      }
-      
       if (!mxCheck.valid) {
         results.finalResult.reasons.push('No MX record found for domain');
         return results;
       }
 
-      // SMTP check (if enabled and not a blocking corporate domain)
+      // SMTP check (if enabled and domain doesn't block it)
       const domain = email.split('@')[1].toLowerCase();
       const isCorporateDomain = this.corporateDomainsWithStrictSecurity.includes(domain);
       
-      if (options.enableSMTP !== false && !isCorporateDomain) {
+      if (options.enableSMTP !== false) {
         try {
           const smtpCheck = await this.checkSMTPHandshake(email);
           results.checks.push(smtpCheck);
-          
-          if (smtpCheck.isPublicDomain) {
-            results.finalResult.valid = false;
-            results.finalResult.confidence = 'high';
-            results.finalResult.isPublicDomain = true;
-            results.finalResult.reasons.push('Public domain rejected for corporate email verification');
-            return results;
-          }
         } catch (error) {
           results.checks.push({
-            valid: false,
+            valid: null,
             method: 'smtp',
             error: error.message,
             confidence: 'unknown'
           });
         }
-      } else if (isCorporateDomain) {
-        results.checks.push({
-          valid: false,
-          method: 'smtp',
-          error: 'Skipped - Corporate domain blocks verification',
-          confidence: 'unknown',
-          note: 'Corporate domains typically block SMTP verification for security'
-        });
       }
 
       // Analyze results and determine final verdict
@@ -692,38 +697,28 @@ except Exception as e:
   }
 
   /**
-   * Analyze Python validation results with corporate focus
+   * Analyze Python validation results (updated for user domains)
    */
   analyzePythonResults(pythonResult, email) {
     const domain = email.split('@')[1].toLowerCase();
     const isCorporateDomain = this.corporateDomainsWithStrictSecurity.includes(domain);
     const isPublicDomain = this.publicDomains.includes(domain);
     
-    if (isPublicDomain) {
-      return {
-        valid: false,
-        confidence: 'high',
-        reasons: ['Public domain rejected for corporate email verification'],
-        corporateDomain: false,
-        isPublicDomain: true,
-        method: 'python-email-validator',
-        corporateEmailOnly: true
-      };
-    }
-    
     if (pythonResult.valid) {
       return {
         valid: true,
         confidence: 'high',
-        reasons: pythonResult.reasons || ['Passed Python email-validator checks for corporate email'],
+        reasons: pythonResult.reasons || ['Passed Python email-validator checks'],
         corporateDomain: isCorporateDomain,
+        isPublicDomain: isPublicDomain,
+        warnings: pythonResult.warnings,
         method: 'python-email-validator',
         normalized: pythonResult.normalized,
         domain: pythonResult.domain,
         ascii_domain: pythonResult.ascii_domain,
         smtputf8: pythonResult.smtputf8,
         mx: pythonResult.mx || [],
-        corporateEmailOnly: true,
+        userDomainFocus: true,
         summary: {
           totalChecks: 1,
           pythonValid: true,
@@ -734,11 +729,13 @@ except Exception as e:
       return {
         valid: false,
         confidence: 'high',
-        reasons: [pythonResult.error || 'Failed Python email-validator checks for corporate email'],
+        reasons: [pythonResult.error || 'Failed Python email-validator checks'],
         corporateDomain: isCorporateDomain,
+        isPublicDomain: isPublicDomain,
+        warnings: pythonResult.warnings,
         method: 'python-email-validator',
         error_type: pythonResult.error_type,
-        corporateEmailOnly: true,
+        userDomainFocus: true,
         summary: {
           totalChecks: 1,
           pythonValid: false,
@@ -749,24 +746,12 @@ except Exception as e:
   }
 
   /**
-   * Enhanced result analysis with corporate domain intelligence
+   * Enhanced result analysis (updated for user domains)
    */
   analyzeNodeJsResults(checks, email, patternCheck) {
     const domain = email.split('@')[1].toLowerCase();
     const isCorporateDomain = this.corporateDomainsWithStrictSecurity.includes(domain);
     const isPublicDomain = this.publicDomains.includes(domain);
-    
-    if (isPublicDomain) {
-      return {
-        valid: false,
-        confidence: 'high',
-        reasons: ['Public domain rejected for corporate email verification'],
-        corporateDomain: false,
-        isPublicDomain: true,
-        method: 'nodejs-enhanced',
-        corporateEmailOnly: true
-      };
-    }
     
     const mxCheck = checks.find(check => check.method === 'mx');
     const smtpCheck = checks.find(check => check.method === 'smtp');
@@ -775,12 +760,21 @@ except Exception as e:
     let confidence = 'unknown';
     let valid = false;
     let reasons = [];
+    let warnings = [];
+
+    // Add warning for public domains
+    if (isPublicDomain) {
+      warnings.push(`${domain} is a public email provider`);
+    }
 
     if (mxCheck && mxCheck.valid) {
+      reasons.push('Domain has valid MX records');
+      
+      // For domains that block SMTP, rely more on patterns and domain validation
       if (isCorporateDomain && patternCheck.isKnownPattern) {
         valid = true;
         confidence = patternCheck.confidence;
-        reasons.push(`Corporate domain with valid MX records and known email pattern (${patternCheck.pattern})`);
+        reasons.push(`Corporate domain with known email pattern (${patternCheck.pattern})`);
         
         if (patternCheck.confidence === 'high') {
           confidence = 'high';
@@ -793,35 +787,51 @@ except Exception as e:
         if (smtpCheck.valid === true) {
           valid = true;
           confidence = 'high';
-          reasons.push('SMTP verification successful for corporate email');
-        } else if (smtpCheck.valid === false && !smtpCheck.temporary) {
+          reasons.push('SMTP verification successful');
+        } else if (smtpCheck.valid === false && smtpCheck.confidence === 'high') {
           valid = false;
           confidence = 'high';
-          reasons.push('SMTP verification failed for corporate email');
+          reasons.push('SMTP verification failed');
+        } else {
+          // SMTP inconclusive - rely on other factors
+          if (patternCheck.isKnownPattern) {
+            valid = true;
+            confidence = patternCheck.confidence;
+            reasons.push(`Domain accepts email (MX exists), matches known pattern (${patternCheck.pattern})`);
+          } else {
+            valid = true;
+            confidence = 'medium';
+            reasons.push('Domain accepts email (MX record exists), SMTP verification inconclusive');
+          }
+        }
+      } else {
+        // No SMTP check performed
+        if (patternCheck.isKnownPattern) {
+          valid = true;
+          confidence = patternCheck.confidence;
+          reasons.push(`Domain accepts email (MX exists), matches known pattern (${patternCheck.pattern})`);
         } else {
           valid = true;
           confidence = 'medium';
-          reasons.push('Corporate domain accepts email (MX record exists), SMTP verification inconclusive');
+          reasons.push('Domain accepts email (MX record exists)');
         }
-      } else {
-        valid = true;
-        confidence = 'medium';
-        reasons.push('Corporate domain accepts email (MX record exists)');
       }
     } else {
       valid = false;
       confidence = 'high';
-      reasons.push('Corporate domain does not accept email (no MX records)');
+      reasons.push('Domain does not accept email (no MX records)');
     }
 
     return {
       valid,
       confidence,
       reasons,
+      warnings: warnings.length > 0 ? warnings : undefined,
       corporateDomain: isCorporateDomain,
+      isPublicDomain: isPublicDomain,
       patternMatch: patternCheck.isKnownPattern ? patternCheck.pattern : null,
       method: 'nodejs-enhanced',
-      corporateEmailOnly: true,
+      userDomainFocus: true,
       summary: {
         totalChecks: checks.length,
         mxValid: mxCheck?.valid || false,
@@ -832,58 +842,39 @@ except Exception as e:
   }
 
   /**
-   * Verify multiple emails in batch with corporate focus
+   * Verify multiple emails in batch (updated for user domains)
    */
   async verifyEmailBatch(emails, options = {}) {
     const results = [];
     const concurrency = Math.min(options.concurrency || 2, 3);
     const delay = Math.max(options.delay || 3000, 2000);
     
-    console.log(`🔍 Starting corporate email batch verification of ${emails.length} emails...`);
+    console.log(`🔍 Starting email batch verification of ${emails.length} emails...`);
     
-    // Filter out public domain emails first
-    const corporateEmails = emails.filter(email => !this.isPublicDomain(email));
-    const rejectedPublicEmails = emails.filter(email => this.isPublicDomain(email));
+    // Group emails by domain for better processing
+    const emailsByDomain = {};
+    emails.forEach(email => {
+      const domain = email.split('@')[1]?.toLowerCase();
+      if (domain) {
+        if (!emailsByDomain[domain]) {
+          emailsByDomain[domain] = [];
+        }
+        emailsByDomain[domain].push(email);
+      }
+    });
     
-    if (rejectedPublicEmails.length > 0) {
-      console.log(`🚫 Rejected ${rejectedPublicEmails.length} public domain emails: ${rejectedPublicEmails.join(', ')}`);
-      
-      // Add rejected results
-      rejectedPublicEmails.forEach(email => {
-        results.push({
-          email,
-          timestamp: new Date().toISOString(),
-          checks: [],
-          finalResult: {
-            valid: false,
-            confidence: 'high',
-            reasons: ['Public domain rejected for corporate email verification'],
-            corporateDomain: false,
-            isPublicDomain: true,
-            method: 'rejected',
-            corporateEmailOnly: true
-          }
-        });
-      });
-    }
+    console.log(`📧 Processing emails across ${Object.keys(emailsByDomain).length} domains`);
     
-    if (corporateEmails.length === 0) {
-      console.log('⚠️ No corporate emails to verify after filtering public domains');
-      return results;
-    }
-    
-    console.log(`🏢 Verifying ${corporateEmails.length} corporate emails...`);
-    
-    // Process corporate emails in batches
-    for (let i = 0; i < corporateEmails.length; i += concurrency) {
-      const batch = corporateEmails.slice(i, i + concurrency);
-      console.log(`Processing corporate email batch ${Math.floor(i/concurrency) + 1}/${Math.ceil(corporateEmails.length/concurrency)} (${batch.length} emails)`);
+    // Process emails in batches
+    for (let i = 0; i < emails.length; i += concurrency) {
+      const batch = emails.slice(i, i + concurrency);
+      console.log(`Processing batch ${Math.floor(i/concurrency) + 1}/${Math.ceil(emails.length/concurrency)} (${batch.length} emails)`);
       
       const batchPromises = batch.map(email => 
         this.verifyEmail(email, options).catch(error => ({
           email,
           error: error.message,
-          finalResult: { valid: false, confidence: 'unknown', reasons: ['Verification failed'], corporateEmailOnly: true }
+          finalResult: { valid: false, confidence: 'unknown', reasons: ['Verification failed'], userDomainFocus: true }
         }))
       );
       
@@ -896,13 +887,13 @@ except Exception as e:
           results.push({
             email: batch[index],
             error: result.reason?.message || 'Unknown error',
-            finalResult: { valid: false, confidence: 'unknown', reasons: ['Processing failed'], corporateEmailOnly: true }
+            finalResult: { valid: false, confidence: 'unknown', reasons: ['Processing failed'], userDomainFocus: true }
           });
         }
       });
       
       // Add delay between batches
-      if (i + concurrency < corporateEmails.length) {
+      if (i + concurrency < emails.length) {
         const hasCorporateDomains = batch.some(email => {
           const domain = email.split('@')[1]?.toLowerCase();
           return this.corporateDomainsWithStrictSecurity.includes(domain);
@@ -917,15 +908,15 @@ except Exception as e:
     // Log summary
     const validCount = results.filter(r => r.finalResult?.valid === true).length;
     const corporateCount = results.filter(r => r.finalResult?.corporateDomain === true).length;
+    const publicCount = results.filter(r => r.finalResult?.isPublicDomain === true).length;
     const pythonCount = results.filter(r => r.finalResult?.method === 'python-email-validator').length;
-    const rejectedCount = results.filter(r => r.finalResult?.isPublicDomain === true).length;
     
-    console.log(`🏢 Corporate email batch verification complete:`);
+    console.log(`📊 Email batch verification complete:`);
     console.log(`   Total processed: ${results.length}`);
-    console.log(`   Valid corporate emails: ${validCount}/${corporateEmails.length}`);
-    console.log(`   Known corporate domains: ${corporateCount}`);
+    console.log(`   Valid emails: ${validCount}/${emails.length}`);
+    console.log(`   Corporate domains: ${corporateCount}`);
+    console.log(`   Public domains: ${publicCount}`);
     console.log(`   Python-validated: ${pythonCount}`);
-    console.log(`   Public domains rejected: ${rejectedCount}`);
     
     return results;
   }
@@ -943,13 +934,13 @@ except Exception as e:
   }
 
   /**
-   * Save verification results to file with corporate focus metadata
+   * Save verification results to file (updated for user domains)
    */
   async saveResults(results, filename = null) {
     try {
       if (!filename) {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        filename = `corporate_email_verification_${timestamp}.json`;
+        filename = `email_verification_${timestamp}.json`;
       }
 
       const outputDir = path.join(process.cwd(), 'email_verification_results');
@@ -958,16 +949,13 @@ except Exception as e:
       
       const filePath = path.join(outputDir, filename);
       
-      // Add metadata about the enhanced corporate verification
+      // Add metadata
       const enhancedResults = {
         metadata: {
           timestamp: new Date().toISOString(),
-          verifier: 'enhanced-corporate-email-verifier',
+          verifier: 'enhanced-email-verifier',
           pythonValidatorAvailable: this.pythonAvailable,
-          corporateEmailOnly: true,
-          publicDomainsRejected: Array.isArray(results) 
-            ? results.filter(r => r.finalResult?.isPublicDomain === true).length 
-            : (results.finalResult?.isPublicDomain ? 1 : 0),
+          userDomainFocus: true,
           totalEmails: Array.isArray(results) ? results.length : 1,
           validEmails: Array.isArray(results) 
             ? results.filter(r => r.finalResult?.valid === true).length 
@@ -975,6 +963,9 @@ except Exception as e:
           corporateEmails: Array.isArray(results)
             ? results.filter(r => r.finalResult?.corporateDomain === true).length
             : (results.finalResult?.corporateDomain ? 1 : 0),
+          publicEmails: Array.isArray(results)
+            ? results.filter(r => r.finalResult?.isPublicDomain === true).length
+            : (results.finalResult?.isPublicDomain ? 1 : 0),
           pythonValidated: Array.isArray(results)
             ? results.filter(r => r.finalResult?.method === 'python-email-validator').length
             : (results.finalResult?.method === 'python-email-validator' ? 1 : 0)
@@ -984,7 +975,7 @@ except Exception as e:
       
       await fs.writeFile(filePath, JSON.stringify(enhancedResults, null, 2), 'utf8');
       
-      console.log(`💾 Saved corporate email verification results to: ${filename}`);
+      console.log(`💾 Saved email verification results to: ${filename}`);
       
       return {
         success: true,
@@ -992,7 +983,7 @@ except Exception as e:
         filename
       };
     } catch (error) {
-      throw new Error(`Failed to save enhanced corporate verification results: ${error.message}`);
+      throw new Error(`Failed to save email verification results: ${error.message}`);
     }
   }
 }

@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ProMailHunter - Email Finder & Verifier</title>
     <link rel="stylesheet" href="/css/styles.css">
-    <meta name="description" content="Generate and verify professional email addresses for any company">
+    <meta name="description" content="Generate and verify professional email addresses for any company domain">
     <meta name="robots" content="noindex, nofollow">
 </head>
 <body>
     <div class="container">
         <header>
             <h1>ProMailHunter</h1>
-            <p>Generate and verify professional email addresses instantly</p>
+            <p>Generate and verify professional email addresses for any company domain</p>
         </header>
 
         <main>
@@ -32,10 +32,19 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="companyName">Company Name *</label>
+                    <label for="companyName">Company Domain *</label>
                     <input type="text" id="companyName" name="companyName" required maxlength="100"
-                           placeholder="e.g., Acme Corporation">
+                           placeholder="e.g., company.com or user@company.com">
                     <span class="error-message" id="companyName-error"></span>
+                    <div class="input-help">
+                        <small>
+                            <strong>📝 Enter the company's email domain:</strong><br>
+                            • <code>company.com</code> - Just the domain<br>
+                            • <code>user@company.com</code> - Any email from that domain<br>
+                            • <code>https://company.com</code> - Company website URL<br>
+                            • <code>www.company.com</code> - Website with www
+                        </small>
+                    </div>
                 </div>
 
                 <button type="submit" id="submitBtn" class="submit-btn">
@@ -44,7 +53,7 @@
                 </button>
                 
                 <div class="button-info">
-                    <p><small>This will generate email combinations and verify which ones actually exist</small></p>
+                    <p><small>This will generate email combinations for the specified domain and verify which ones exist</small></p>
                 </div>
             </form>
 
@@ -53,6 +62,59 @@
                 <div id="resultContent"></div>
             </div>
         </main>
+
+        <footer class="info-section">
+            <div class="features-info">
+                <h3>🎯 How It Works</h3>
+                <ul>
+                    <li><strong>Domain Validation:</strong> Verifies the domain accepts email</li>
+                    <li><strong>Pattern Generation:</strong> Creates common business email patterns</li>
+                    <li><strong>Email Verification:</strong> Tests which emails actually exist</li>
+                    <li><strong>Smart Results:</strong> Shows only valid, deliverable addresses</li>
+                </ul>
+            </div>
+            
+            <div class="examples-info">
+                <h3>📋 Example Inputs</h3>
+                <div class="example-grid">
+                    <div class="example-item">
+                        <strong>✅ Good:</strong>
+                        <code>ukg.com</code>
+                    </div>
+                    <div class="example-item">
+                        <strong>✅ Good:</strong>
+                        <code>john@microsoft.com</code>
+                    </div>
+                    <div class="example-item">
+                        <strong>✅ Good:</strong>
+                        <code>https://salesforce.com</code>
+                    </div>
+                    <div class="example-item">
+                        <strong>✅ Good:</strong>
+                        <code>www.oracle.com</code>
+                    </div>
+                    <div class="example-item">
+                        <strong>❌ Bad:</strong>
+                        <code>Acme Corporation</code>
+                    </div>
+                    <div class="example-item">
+                        <strong>❌ Bad:</strong>
+                        <code>Some Company Inc</code>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tech-info">
+                <h3>🔧 Advanced Features</h3>
+                <ul>
+                    <li><strong>Python Integration:</strong> Uses email-validator for RFC compliance</li>
+                    <li><strong>International Support:</strong> Handles Unicode domains and emails</li>
+                    <li><strong>Corporate Intelligence:</strong> Knows how different companies handle email</li>
+                    <li><strong>SMTP Verification:</strong> Actually tests email deliverability</li>
+                    <li><strong>Pattern Learning:</strong> Learns email patterns for each domain</li>
+                </ul>
+            </div>
+        </footer>
     </div>
 
     <script src="/js/app.js"></script>
