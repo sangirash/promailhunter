@@ -1,4 +1,4 @@
-// utils/emailGenerator.js - SIMPLIFIED: Use only user-provided domain
+// utils/emailGenerator.js - CLEANED: Personal names only, no generic keywords
 const fs = require('fs').promises;
 const path = require('path');
 const dns = require('dns').promises;
@@ -8,7 +8,7 @@ class EmailGenerator {
     // Cache for domain validation to avoid repeated DNS queries
     this.domainCache = new Map();
     
-    console.log('🎯 EmailGenerator initialized - User domain only mode');
+    console.log('🎯 EmailGenerator initialized - Personal names only mode');
   }
 
   /**
@@ -120,7 +120,8 @@ class EmailGenerator {
   }
 
   /**
-   * Generate comprehensive username variations (no numbers prefix, no single chars)
+   * Generate PERSONAL username variations ONLY (firstname/lastname combinations)
+   * REMOVED: All generic keywords like hr, admin, info, contact, support, sales, it, finance
    */
   generateUsernames(firstName, lastName) {
     const fName = firstName.toLowerCase().trim();
@@ -130,75 +131,85 @@ class EmailGenerator {
     
     const usernames = new Set();
     
-    console.log(`👤 Generating username patterns for: ${firstName} ${lastName}`);
+    console.log(`👤 Generating PERSONAL username patterns for: ${firstName} ${lastName} (no generic keywords)`);
+    
+    // === CORE PERSONAL NAME COMBINATIONS ===
     
     // Basic combinations with different separators (minimum 2 characters)
     if (fName.length >= 2 && lName.length >= 2) {
-      usernames.add(`${fName}.${lName}`);
-      usernames.add(`${fName}_${lName}`);
-      usernames.add(`${fName}-${lName}`);
-      usernames.add(`${fName}${lName}`);
+      usernames.add(`${fName}.${lName}`);        // john.doe
+      usernames.add(`${fName}_${lName}`);        // john_doe
+      usernames.add(`${fName}-${lName}`);        // john-doe
+      usernames.add(`${fName}${lName}`);         // johndoe
     }
     
     // Initial + lastname combinations (avoid single character usernames)
     if (lName.length >= 2) {
-      usernames.add(`${fInitial}.${lName}`);
-      usernames.add(`${fInitial}_${lName}`);
-      usernames.add(`${fInitial}-${lName}`);
-      usernames.add(`${fInitial}${lName}`);
+      usernames.add(`${fInitial}.${lName}`);     // j.doe
+      usernames.add(`${fInitial}_${lName}`);     // j_doe
+      usernames.add(`${fInitial}-${lName}`);     // j-doe
+      usernames.add(`${fInitial}${lName}`);      // jdoe
     }
     
     // Firstname + initial combinations (avoid single character usernames)
     if (fName.length >= 2) {
-      usernames.add(`${fName}.${lInitial}`);
-      usernames.add(`${fName}_${lInitial}`);
-      usernames.add(`${fName}-${lInitial}`);
-      usernames.add(`${fName}${lInitial}`);
+      usernames.add(`${fName}.${lInitial}`);     // john.d
+      usernames.add(`${fName}_${lInitial}`);     // john_d
+      usernames.add(`${fName}-${lInitial}`);     // john-d
+      usernames.add(`${fName}${lInitial}`);      // johnd
     }
     
-    // Double initials (only if makes sense - avoid single letters)
-    if (fInitial && lInitial) {
-      usernames.add(`${fInitial}${lInitial}`);
+    // Double initials (only if both names are reasonable length)
+    if (fInitial && lInitial && fName.length >= 2 && lName.length >= 2) {
+      usernames.add(`${fInitial}${lInitial}`);   // jd
     }
     
     // Reversed combinations (minimum 2 characters)
     if (fName.length >= 2 && lName.length >= 2) {
-      usernames.add(`${lName}.${fName}`);
-      usernames.add(`${lName}_${fName}`);
-      usernames.add(`${lName}-${fName}`);
-      usernames.add(`${lName}${fName}`);
+      usernames.add(`${lName}.${fName}`);        // doe.john
+      usernames.add(`${lName}_${fName}`);        // doe_john
+      usernames.add(`${lName}-${fName}`);        // doe-john
+      usernames.add(`${lName}${fName}`);         // doejohn
     }
     
     if (lName.length >= 2) {
-      usernames.add(`${lName}.${fInitial}`);
-      usernames.add(`${lName}_${fInitial}`);
-      usernames.add(`${lName}-${fInitial}`);
-      usernames.add(`${lName}${fInitial}`);
+      usernames.add(`${lName}.${fInitial}`);     // doe.j
+      usernames.add(`${lName}_${fInitial}`);     // doe_j
+      usernames.add(`${lName}-${fInitial}`);     // doe-j
+      usernames.add(`${lName}${fInitial}`);      // doej
     }
     
     // Full names only if they're reasonable length
     if (fName.length >= 2) {
-      usernames.add(fName);
+      usernames.add(fName);                      // john
     }
     if (lName.length >= 2) {
-      usernames.add(lName);
+      usernames.add(lName);                      // doe
     }
     
-    // Common business patterns (no single characters)
+    // === COMMON BUSINESS NAME PATTERNS ===
+    
+    // Firstname + last initial (common in business)
     if (fName.length >= 2 && lName.length >= 2) {
-      usernames.add(`${fName}${lName.charAt(0)}`);
-      if (lName.length >= 3) {
-        usernames.add(`${fInitial}${lName.substring(0, 3)}`);
-      }
-      if (fName.length >= 3 && lName.length >= 3) {
-        usernames.add(`${fName.substring(0, 3)}${lName.substring(0, 3)}`);
-      }
+      usernames.add(`${fName}${lName.charAt(0)}`);  // johnd
     }
     
-    // With common numbers (SUFFIX ONLY - no prefix numbers)
+    // First initial + part of lastname (if lastname is long enough)
+    if (lName.length >= 3) {
+      usernames.add(`${fInitial}${lName.substring(0, 3)}`);  // jdoe
+    }
+    
+    // Partial names (for longer names)
+    if (fName.length >= 3 && lName.length >= 3) {
+      usernames.add(`${fName.substring(0, 3)}${lName.substring(0, 3)}`);  // johdoe
+    }
+    
+    // === NUMBER SUFFIXES (ONLY) ===
+    // Common numbers added as SUFFIX (never prefix) to existing name patterns
     const commonNumbers = ['1', '01', '2', '123'];
     const basePatterns = [];
     
+    // Collect the best base patterns for number suffixes
     if (fName.length >= 2 && lName.length >= 2) {
       basePatterns.push(`${fName}.${lName}`, `${fName}${lName}`);
     }
@@ -212,35 +223,26 @@ class EmailGenerator {
       basePatterns.push(lName);
     }
     
+    // Add number suffixes to base patterns
     basePatterns.forEach(pattern => {
       commonNumbers.forEach(num => {
-        // Only add numbers as SUFFIX, never prefix
-        usernames.add(`${pattern}${num}`);
+        usernames.add(`${pattern}${num}`);       // john.doe1, johndoe123, etc.
       });
     });
     
-    // Department/role based (common in corporations) - minimum 2 characters
-    const departments = ['admin', 'info', 'contact', 'support', 'sales', 'hr', 'it', 'finance'];
-    departments.forEach(dept => {
-      if (fName.length >= 2) {
-        usernames.add(`${fName}.${dept}`);
-        usernames.add(`${dept}.${fName}`);
-        usernames.add(`${fInitial}${dept}`);
-      }
-    });
-    
-    // Length-based variations (some companies prefer specific lengths)
+    // === LENGTH-BASED VARIATIONS ===
+    // Some companies prefer specific username lengths
     if (fName.length > 3 && lName.length >= 2) {
-      usernames.add(`${fName.substring(0, 3)}.${lName}`);
+      usernames.add(`${fName.substring(0, 3)}.${lName}`);      // joh.doe
       if (fName.length > 4) {
-        usernames.add(`${fName.substring(0, 4)}.${lName}`);
+        usernames.add(`${fName.substring(0, 4)}.${lName}`);    // john.doe
       }
     }
     
     if (lName.length > 3 && fName.length >= 2) {
-      usernames.add(`${fName}.${lName.substring(0, 3)}`);
+      usernames.add(`${fName}.${lName.substring(0, 3)}`);      // john.do
       if (lName.length > 4) {
-        usernames.add(`${fName}.${lName.substring(0, 4)}`);
+        usernames.add(`${fName}.${lName.substring(0, 4)}`);    // john.doe
       }
     }
     
@@ -257,7 +259,13 @@ class EmailGenerator {
       !/^\d/.test(username) // No numbers at the beginning
     );
     
-    console.log(`📋 Generated ${validUsernames.length} username patterns`);
+    console.log(`📋 Generated ${validUsernames.length} PERSONAL username patterns (no generic keywords)`);
+    
+    // Log some examples for verification
+    if (validUsernames.length > 0) {
+      console.log(`📧 Sample patterns: ${validUsernames.slice(0, 5).join(', ')}${validUsernames.length > 5 ? '...' : ''}`);
+    }
+    
     return validUsernames;
   }
 
@@ -287,14 +295,15 @@ class EmailGenerator {
     const domain = domainResult.validDomains[0]; // Only one domain now
     const emails = new Set();
     
-    // Generate emails for the single user-provided domain
+    // Generate emails ONLY for the single user-provided domain
     usernames.forEach(username => {
       emails.add(`${username}@${domain}`);
     });
     
     const emailList = Array.from(emails).sort();
     
-    console.log(`✅ Generated ${emailList.length} email addresses for domain: ${domain}`);
+    console.log(`✅ Generated ${emailList.length} PERSONAL email addresses for domain: ${domain}`);
+    console.log(`🚫 NO generic keyword emails generated (hr, admin, info, etc.)`);
     
     return {
       all: emailList,
@@ -305,7 +314,7 @@ class EmailGenerator {
   }
 
   /**
-   * Generate email data structure with metadata (USER DOMAIN ONLY)
+   * Generate email data structure with metadata (USER DOMAIN + PERSONAL NAMES ONLY)
    */
   async generateEmailData(firstName, lastName, companyName) {
     const emailResult = await this.generateEmails(firstName, lastName, companyName);
@@ -324,7 +333,8 @@ class EmailGenerator {
           totalUsernames: usernames.length,
           error: emailResult.error,
           warnings: emailResult.warnings || [],
-          userDomainOnly: true
+          userDomainOnly: true,
+          personalNamesOnly: true // NEW FLAG
         },
         emails: {
           all: [],
@@ -337,6 +347,8 @@ class EmailGenerator {
         },
         patterns: {
           usernames: usernames,
+          personalOnly: true, // NEW FLAG
+          excludedGenericKeywords: ['hr', 'admin', 'info', 'contact', 'support', 'sales', 'it', 'finance'],
           stats: {
             basicCombinations: usernames.filter(u => u.includes('.')).length,
             withNumbers: usernames.filter(u => /\d/.test(u)).length,
@@ -362,6 +374,7 @@ class EmailGenerator {
         totalUsernames: usernames.length,
         domainValidated: true,
         userDomainOnly: true,
+        personalNamesOnly: true, // NEW FLAG
         error: null
       },
       emails: {
@@ -375,6 +388,8 @@ class EmailGenerator {
       },
       patterns: {
         usernames: usernames,
+        personalOnly: true, // NEW FLAG
+        excludedGenericKeywords: ['hr', 'admin', 'info', 'contact', 'support', 'sales', 'it', 'finance'],
         stats: {
           basicCombinations: usernames.filter(u => u.includes('.')).length,
           withNumbers: usernames.filter(u => /\d/.test(u)).length,
@@ -394,7 +409,7 @@ class EmailGenerator {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const cleanName = `${emailData.metadata.firstName}_${emailData.metadata.lastName}`.toLowerCase();
       const cleanDomain = emailData.metadata.domain ? emailData.metadata.domain.replace(/[^a-z0-9]/g, '') : 'no-domain';
-      filename = `emails_${cleanName}_${cleanDomain}_${timestamp}.json`;
+      filename = `personal_emails_${cleanName}_${cleanDomain}_${timestamp}.json`;
     }
     
     try {
@@ -406,7 +421,7 @@ class EmailGenerator {
       const filePath = path.join(outputDir, filename);
       await fs.writeFile(filePath, JSON.stringify(emailData, null, 2), 'utf8');
       
-      console.log(`💾 Saved email data to: ${filename}`);
+      console.log(`💾 Saved PERSONAL email data to: ${filename}`);
       
       return {
         success: true,
@@ -414,7 +429,8 @@ class EmailGenerator {
         filename,
         totalEmails: emailData.emails.all.length,
         domain: emailData.metadata.domain,
-        userDomainOnly: true
+        userDomainOnly: true,
+        personalNamesOnly: true
       };
     } catch (error) {
       throw new Error(`Failed to save email file: ${error.message}`);
@@ -422,11 +438,11 @@ class EmailGenerator {
   }
 
   /**
-   * Main function to generate and save emails (USER DOMAIN ONLY)
+   * Main function to generate and save emails (USER DOMAIN + PERSONAL NAMES ONLY)
    */
   async processContact(firstName, lastName, companyName, saveToFile = true) {
     try {
-      console.log(`🎯 Processing contact: ${firstName} ${lastName} for domain in "${companyName}" (User domain only)`);
+      console.log(`🎯 Processing contact: ${firstName} ${lastName} for domain in "${companyName}" (Personal names only)`);
       
       const emailData = await this.generateEmailData(firstName, lastName, companyName);
       
@@ -442,7 +458,8 @@ class EmailGenerator {
           emailData.metadata.warnings.forEach(warning => console.warn(`   - ${warning}`));
         }
       } else if (emailData.emails.all.length > 0) {
-        console.log(`✅ Successfully generated ${emailData.emails.all.length} emails for domain: ${emailData.metadata.domain}`);
+        console.log(`✅ Successfully generated ${emailData.emails.all.length} PERSONAL emails for domain: ${emailData.metadata.domain}`);
+        console.log(`🚫 NO generic keyword emails generated (cleaner, more targeted results)`);
       } else {
         console.warn(`⚠️ No emails generated for ${companyName}`);
       }
@@ -453,7 +470,7 @@ class EmailGenerator {
         file: fileInfo
       };
     } catch (error) {
-      throw new Error(`Email generation failed: ${error.message}`);
+      throw new Error(`Personal email generation failed: ${error.message}`);
     }
   }
 }
