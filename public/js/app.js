@@ -1,6 +1,3 @@
-// public/js/app.js - CONSOLIDATED VERSION
-// This is the ONLY frontend JavaScript file we need
-
 class ProMailHunterApp {
     constructor() {
         this.form = document.getElementById('contactForm');
@@ -11,10 +8,25 @@ class ProMailHunterApp {
         this.domainValidator = document.getElementById('domainValidator');
         this.validationIcon = document.getElementById('validationIcon');
         this.validationMessage = document.getElementById('validationMessage');
+        this.domainRestrictionNote = document.getElementById('domainRestrictionNote');
 
         // Domain validation instance
         this.domainValidationTimer = null;
         this.lastValidatedDomain = null;
+
+        // List of generic email domains
+        this.genericDomains = [
+            'gmail.com',
+            'outlook.com',
+            'hotmail.com',
+            'yahoo.com',
+            'aol.com',
+            'icloud.com',
+            'protonmail.com',
+            'zoho.com',
+            'mail.com',
+            'gmx.com'
+        ];
 
         this.init();
     }
@@ -31,6 +43,58 @@ class ProMailHunterApp {
         const companyInput = document.getElementById('companyName');
         companyInput.addEventListener('input', this.handleDomainInputChange.bind(this));
         companyInput.addEventListener('blur', this.handleDomainInputChange.bind(this));
+
+        // Add input listeners for button state management
+        this.updateButtonStates();
+        const inputs = this.form.querySelectorAll('input[type="text"]');
+        inputs.forEach(input => {
+            input.addEventListener('input', () => this.updateButtonStates());
+        });
+    }
+
+    updateButtonStates() {
+        const firstName = document.getElementById('firstName').value.trim();
+        const lastName = document.getElementById('lastName').value.trim();
+        const companyName = document.getElementById('companyName').value.trim();
+        
+        const domain = this.extractDomain(companyName);
+        const isValidDomainFormat = this.isValidDomainFormat(companyName);
+        const isCorporateDomain = domain && !this.isGenericDomain(domain);
+        
+        const allFieldsValid = firstName && lastName && companyName && isValidDomainFormat && isCorporateDomain;
+        
+        this.generateBtn.disabled = !allFieldsValid;
+        this.verifyBtn.disabled = !allFieldsValid;
+
+        // Show appropriate restriction note
+        if (companyName && !isValidDomainFormat) {
+            this.showDomainRestrictionNote('Please add a valid domain variation such as .com, .org, or .co');
+        } else if (companyName && isValidDomainFormat && !isCorporateDomain) {
+            this.showDomainRestrictionNote('This search is specifically for corporate domains only, kindly enter a corporate domain');
+        } else {
+            this.clearDomainRestrictionNote();
+        }
+    }
+
+    isValidDomainFormat(input) {
+        const domain = this.extractDomain(input);
+        if (!domain) return false;
+        // Check for valid TLD
+        return /\.[a-zA-Z]{2,}$/.test(domain);
+    }
+
+    isGenericDomain(domain) {
+        return this.genericDomains.includes(domain.toLowerCase());
+    }
+
+    showDomainRestrictionNote(message) {
+        this.domainRestrictionNote.textContent = message;
+        this.domainRestrictionNote.classList.add('show');
+    }
+
+    clearDomainRestrictionNote() {
+        this.domainRestrictionNote.textContent = '';
+        this.domainRestrictionNote.classList.remove('show');
     }
 
     addRealTimeValidation() {
@@ -168,6 +232,9 @@ class ProMailHunterApp {
                 if (value && !domain) {
                     isValid = false;
                     errorMessage = 'Please enter a valid domain (e.g., company.com)';
+                } else if (domain && this.isGenericDomain(domain)) {
+                    isValid = false;
+                    errorMessage = 'Generic email domains are not allowed';
                 }
                 break;
         }
@@ -222,9 +289,6 @@ class ProMailHunterApp {
             this.setButtonLoading(this.generateBtn, false);
         }
     }
-
-    // Updated handleGenerateAndVerify method in public/js/app.js
-    // Replace the existing method with this improved version
 
     async handleGenerateAndVerify(e) {
         e.preventDefault();
@@ -471,8 +535,6 @@ class ProMailHunterApp {
         this.resultContainer.classList.remove('hidden');
     }
 
-
-    // Mock polling function (in production, use WebSockets or Server-Sent Events)
     async pollForResults(endpoint) {
         // Simulate progress updates
         let progress = 0;

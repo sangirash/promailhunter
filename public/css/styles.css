@@ -1,5 +1,33 @@
 /* Additional styles to add to public/css/styles.css */
 
+/* Mandatory note styling */
+.mandatory-note {
+    margin-bottom: 20 px;
+    padding: 12 px;
+    background: #fff3cd;
+    border-radius: 8 px;
+    border-left: 4 px solid #ffca2c;
+}
+
+.mandatory-note p {
+    margin: 0;
+    color: #664d03;
+    font-size: 0.95rem;
+}
+
+/* Domain restriction note styling */
+.domain-restriction-note {
+    display: none;
+    margin-top: 8px;
+    color: #dc3545;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.domain-restriction-note.show {
+    display: block;
+}
+
 /* Action buttons styling */
 .action-buttons {
     display: flex;
