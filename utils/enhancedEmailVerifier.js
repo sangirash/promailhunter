@@ -669,6 +669,251 @@ class EnhancedEmailVerifier {
       }
     };
   }
+
+// Additional methods to add to EnhancedEmailVerifier class
+
+    /**
+     * Intelligently verify ALL emails with optimized batching and progress tracking
+     * @param {Array} emails - All emails to verify
+     * @param {Object} options - Verification options
+     * @returns {Array} All verification results
+     */
+    async verifyAllEmailsIntelligently(emails, options = {}) {
+        const results = [];
+        const {
+            batchSize = 3,
+            delay = 2000,
+            progressCallback = null,
+            enableSMTP = true,
+            deepVerification = true
+        } = options;
+
+        const totalEmails = emails.length;
+        let completed = 0;
+        
+        console.log(`🎯 Starting intelligent verification of ALL ${totalEmails} emails`);
+        console.log(`📦 Using dynamic batching: ${batchSize} emails per batch with ${delay}ms delay`);
+        
+        // Group emails by domain for more efficient verification
+        const emailsByDomain = this.groupEmailsByDomain(emails);
+        const domainCount = Object.keys(emailsByDomain).length;
+        
+        console.log(`🌐 Emails grouped into ${domainCount} domain(s) for optimized verification`);
+        
+        // Process each domain's emails
+        for (const [domain, domainEmails] of Object.entries(emailsByDomain)) {
+            console.log(`\n📧 Processing ${domainEmails.length} emails for domain: ${domain}`);
+            
+            // Check if domain is corporate/known to block SMTP
+            const isCorporateDomain = this.corporateDomainsWithStrictSecurity.includes(domain.toLowerCase());
+            const isPublicDomain = this.publicDomains.includes(domain.toLowerCase());
+            
+            // Adjust strategy based on domain type
+            let domainBatchSize = batchSize;
+            let domainDelay = delay;
+            
+            if (isCorporateDomain) {
+                console.log(`🏢 Corporate domain detected - using pattern matching strategy`);
+                domainBatchSize = Math.min(batchSize * 2, 10); // Faster for pattern matching
+                domainDelay = 500; // Minimal delay for pattern matching
+            } else if (isPublicDomain) {
+                console.log(`📮 Public email provider detected - using careful SMTP strategy`);
+                domainBatchSize = Math.max(1, Math.floor(batchSize / 2)); // Slower for public providers
+                domainDelay = delay * 1.5; // Longer delay to avoid rate limits
+            }
+            
+            // Process domain's emails in batches
+            for (let i = 0; i < domainEmails.length; i += domainBatchSize) {
+                const batch = domainEmails.slice(i, i + domainBatchSize);
+                const batchNum = Math.floor(i / domainBatchSize) + 1;
+                const totalBatches = Math.ceil(domainEmails.length / domainBatchSize);
+                
+                console.log(`  Batch ${batchNum}/${totalBatches} for ${domain}: Verifying ${batch.length} emails`);
+                
+                // Verify batch with appropriate method
+                const batchPromises = batch.map(email => {
+                    if (isCorporateDomain && !enableSMTP) {
+                        // Fast pattern matching for corporate domains
+                        return this.verifyViaPatternMatching(email);
+                    } else {
+                        // Full verification including SMTP
+                        return this.verifyEmail(email, {
+                            ...options,
+                            enableSMTP: enableSMTP && !isCorporateDomain,
+                            deepVerification: deepVerification && !isCorporateDomain
+                        }).catch(error => ({
+                            email,
+                            error: error.message,
+                            finalResult: { 
+                                valid: false, 
+                                confidence: 'unknown', 
+                                reasons: ['Verification failed'],
+                                error: error.message
+                            }
+                        }));
+                    }
+                });
+            
+                const batchResults = await Promise.allSettled(batchPromises);
+            
+                // Process batch results
+                batchResults.forEach((result, index) => {
+                    completed++;
+                    
+                    if (result.status === 'fulfilled') {
+                        const emailResult = result.value;
+                        results.push(emailResult);
+                        
+                        // Log result
+                        const email = batch[index];
+                        const status = emailResult.finalResult?.valid ? '✅' : '❌';
+                        const confidence = emailResult.finalResult?.confidence || 'unknown';
+                        console.log(`    ${status} ${email} (${confidence})`);
+                    } else {
+                        // Handle failed verification
+                        const email = batch[index];
+                        console.log(`    ❌ ${email} (error: ${result.reason?.message})`);
+                        
+                        results.push({
+                            email,
+                            error: result.reason?.message || 'Unknown error',
+                            finalResult: { 
+                            valid: false, 
+                            confidence: 'unknown', 
+                            reasons: ['Processing failed']
+                            }
+                        });
+                    }
+                    
+                    // Call progress callback if provided
+                    if (progressCallback) {
+                        const progress = {
+                            completed,
+                            total: totalEmails,
+                            percentage: Math.round((completed / totalEmails) * 100),
+                            currentDomain: domain,
+                            domainsProcessed: Object.keys(emailsByDomain).indexOf(domain) + 1,
+                            totalDomains: domainCount
+                        };
+                        progressCallback(progress);
+                    }
+                });
+            
+                // Delay between batches (except for the last batch of a domain)
+                if (i + domainBatchSize < domainEmails.length) {
+                    console.log(`  ⏳ Waiting ${domainDelay}ms before next batch...`);
+                    await new Promise(resolve => setTimeout(resolve, domainDelay));
+                }
+            }
+            
+            // Summary for this domain
+            const domainResults = results.filter(r => r.email.endsWith('@' + domain));
+            const validCount = domainResults.filter(r => r.finalResult?.valid === true).length;
+            console.log(`✅ Domain ${domain} complete: ${validCount}/${domainEmails.length} valid emails`);
+        }
+    
+        // Final summary
+        this.printVerificationSummary(results, totalEmails);
+        
+        return results;
+    }
+
+    /**
+     * Group emails by domain for efficient processing
+     */
+    groupEmailsByDomain(emails) {
+        const grouped = {};
+        
+        emails.forEach(email => {
+            const domain = email.split('@')[1];
+            if (!grouped[domain]) {
+                grouped[domain] = [];
+            }
+            grouped[domain].push(email);
+        });
+        
+        // Sort domains by email count (process smaller domains first)
+        const sorted = {};
+        Object.keys(grouped)
+            .sort((a, b) => grouped[a].length - grouped[b].length)
+            .forEach(domain => {
+                sorted[domain] = grouped[domain];
+            });
+        
+        return sorted;
+    }
+
+    /**
+     * Fast pattern matching verification for corporate domains
+     */
+    async verifyViaPatternMatching(email) {
+        const [username, domain] = email.split('@');
+        const patternCheck = this.checkAgainstKnownPatterns(email);
+        
+        const result = {
+            email,
+            timestamp: new Date().toISOString(),
+            checks: [{
+                method: 'pattern-matching',
+                valid: patternCheck.isKnownPattern,
+                confidence: patternCheck.confidence,
+                pattern: patternCheck.pattern
+            }],
+            finalResult: {
+                valid: patternCheck.isKnownPattern,
+                confidence: patternCheck.confidence,
+                reasons: patternCheck.isKnownPattern 
+                    ? [`Matches known pattern: ${patternCheck.pattern}`]
+                    : ['No matching pattern found'],
+                method: 'pattern-matching',
+                corporateDomain: true
+            }
+        };
+        
+        return result;
+    }
+
+    /**
+     * Print detailed verification summary
+     */
+    printVerificationSummary(results, totalEmails) {
+        const validCount = results.filter(r => r.finalResult?.valid === true).length;
+        const invalidCount = results.filter(r => r.finalResult?.valid === false).length;
+        const uncertainCount = results.filter(r => r.finalResult?.valid === null || r.finalResult?.confidence === 'unknown').length;
+        
+        const byConfidence = {
+            high: results.filter(r => r.finalResult?.confidence === 'high').length,
+            medium: results.filter(r => r.finalResult?.confidence === 'medium').length,
+            low: results.filter(r => r.finalResult?.confidence === 'low').length,
+            unknown: results.filter(r => r.finalResult?.confidence === 'unknown').length
+        };
+        
+        const byMethod = {};
+        results.forEach(r => {
+            const method = r.finalResult?.method || 'unknown';
+            byMethod[method] = (byMethod[method] || 0) + 1;
+        });
+        
+        console.log('\n' + '='.repeat(70));
+        console.log('📊 COMPLETE VERIFICATION SUMMARY');
+        console.log('='.repeat(70));
+        console.log(`Total Emails Processed: ${totalEmails}`);
+        console.log(`✅ Valid: ${validCount} (${((validCount/totalEmails)*100).toFixed(1)}%)`);
+        console.log(`❌ Invalid: ${invalidCount} (${((invalidCount/totalEmails)*100).toFixed(1)}%)`);
+        console.log(`❓ Uncertain: ${uncertainCount} (${((uncertainCount/totalEmails)*100).toFixed(1)}%)`);
+        console.log('\nConfidence Distribution:');
+        Object.entries(byConfidence).forEach(([level, count]) => {
+            if (count > 0) {
+                console.log(`  ${level}: ${count} (${((count/totalEmails)*100).toFixed(1)}%)`);
+            }
+        });
+        console.log('\nVerification Methods Used:');
+        Object.entries(byMethod).forEach(([method, count]) => {
+            console.log(`  ${method}: ${count}`);
+        });
+        console.log('='.repeat(70));
+    }
+
 }
 
 module.exports = EnhancedEmailVerifier;
