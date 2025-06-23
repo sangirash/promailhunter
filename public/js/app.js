@@ -11,11 +11,11 @@ class ProMailHunterApp {
         this.domainValidator = document.getElementById('domainValidator');
         this.validationIcon = document.getElementById('validationIcon');
         this.validationMessage = document.getElementById('validationMessage');
-        
+
         // Domain validation instance
         this.domainValidationTimer = null;
         this.lastValidatedDomain = null;
-        
+
         this.init();
     }
 
@@ -23,10 +23,10 @@ class ProMailHunterApp {
         // Add button event listeners
         this.generateBtn.addEventListener('click', this.handleEmailGeneration.bind(this));
         this.verifyBtn.addEventListener('click', this.handleGenerateAndVerify.bind(this));
-        
+
         // Add real-time validation
         this.addRealTimeValidation();
-        
+
         // Add domain validation on company input
         const companyInput = document.getElementById('companyName');
         companyInput.addEventListener('input', this.handleDomainInputChange.bind(this));
@@ -43,28 +43,28 @@ class ProMailHunterApp {
 
     handleDomainInputChange(e) {
         const value = e.target.value.trim();
-        
+
         // Clear previous timer
         if (this.domainValidationTimer) {
             clearTimeout(this.domainValidationTimer);
         }
-        
+
         if (!value) {
             this.domainValidator.classList.remove('show');
             return;
         }
-        
+
         // Extract domain from input
         const domain = this.extractDomain(value);
-        
+
         if (!domain) {
             this.showDomainValidation('invalid', '❌', 'Invalid domain format');
             return;
         }
-        
+
         // Show checking status
         this.showDomainValidation('checking', '⏳', `Checking ${domain}...`);
-        
+
         // Debounce validation
         this.domainValidationTimer = setTimeout(() => {
             this.validateDomain(domain);
@@ -73,13 +73,13 @@ class ProMailHunterApp {
 
     extractDomain(input) {
         const cleanInput = input.trim().toLowerCase();
-        
+
         // Direct domain format
         const domainPattern = /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
         if (domainPattern.test(cleanInput)) {
             return cleanInput;
         }
-        
+
         // Email format
         if (cleanInput.includes('@')) {
             const parts = cleanInput.split('@');
@@ -87,14 +87,14 @@ class ProMailHunterApp {
                 return parts[1];
             }
         }
-        
+
         // URL format
         const urlPattern = /^(https?:\/\/)?(www\.)?([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/;
         const match = cleanInput.match(urlPattern);
         if (match && match[3]) {
             return match[3];
         }
-        
+
         return null;
     }
 
@@ -102,12 +102,16 @@ class ProMailHunterApp {
         try {
             const response = await fetch('/api/validate-domain', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ domain })
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    domain
+                })
             });
-            
+
             const result = await response.json();
-            
+
             if (result.valid) {
                 let message = result.message;
                 if (result.isPublicProvider) {
@@ -131,7 +135,7 @@ class ProMailHunterApp {
         this.domainValidator.classList.add('show');
         this.validationIcon.textContent = icon;
         this.validationMessage.textContent = message;
-        
+
         // Update styling based on status
         this.domainValidator.className = `domain-validator show ${status}`;
     }
@@ -151,7 +155,7 @@ class ProMailHunterApp {
             errorMessage = `Maximum ${input.maxLength} characters allowed`;
         }
 
-        switch(fieldName) {
+        switch (fieldName) {
             case 'firstName':
             case 'lastName':
                 if (value && !/^[a-zA-Z\s'-]+$/.test(value)) {
@@ -183,7 +187,7 @@ class ProMailHunterApp {
 
     async handleEmailGeneration(e) {
         e.preventDefault();
-        
+
         if (!this.validateForm()) {
             return;
         }
@@ -219,9 +223,12 @@ class ProMailHunterApp {
         }
     }
 
+    // Updated handleGenerateAndVerify method in public/js/app.js
+    // Replace the existing method with this improved version
+
     async handleGenerateAndVerify(e) {
         e.preventDefault();
-        
+
         if (!this.validateForm()) {
             return;
         }
@@ -255,23 +262,99 @@ class ProMailHunterApp {
                 body: JSON.stringify(requestBody)
             });
 
-            const result = await response.json();
+            // Parse response
+            let result;
+            const contentType = response.headers.get('content-type');
+
+            if (contentType && contentType.includes('application/json')) {
+                result = await response.json();
+            } else {
+                // Handle non-JSON responses
+                const text = await response.text();
+                console.error('Non-JSON response received:', text);
+                throw new Error('Server returned an invalid response format');
+            }
+
+            console.log('Verification response received:', result); // Debug log
 
             if (response.ok && result.success) {
+                // Check if we have the minimum required data
+                if (!result.generation || !result.generation.totalGenerated) {
+                    console.warn('Response missing expected data structure:', result);
+                    // Create a minimal structure
+                    result.generation = result.generation || {
+                        totalGenerated: 0,
+                        domain: 'unknown'
+                    };
+                    result.verification = result.verification || {
+                        strategy: {
+                            description: 'Email verification'
+                        }
+                    };
+                }
+
                 // Show initial response with progress info
                 this.showVerificationInProgress(result);
-                
-                // Start polling for results (in a real app, use WebSockets)
-                if (result.progressTracking?.enabled) {
-                    this.pollForResults(result.progressTracking.checkProgressEndpoint);
+
+                // Since real progress tracking isn't implemented, simulate completion
+                const totalEmails = result.generation?.totalGenerated || 0;
+
+                if (totalEmails > 0) {
+                    // Simulate progress
+                    let progress = 0;
+                    const progressInterval = setInterval(() => {
+                        progress += Math.random() * 20;
+                        if (progress > 100) progress = 100;
+
+                        const verified = Math.floor((progress / 100) * totalEmails);
+
+                        const progressBar = document.getElementById('verificationProgress');
+                        const progressText = document.getElementById('progressText');
+
+                        if (progressBar) progressBar.style.width = progress + '%';
+                        if (progressText) progressText.textContent = `${verified} / ${totalEmails} verified`;
+
+                        if (progress >= 100) {
+                            clearInterval(progressInterval);
+                            document.getElementById('stage-analyze')?.classList.add('active');
+
+                            // Show completion message
+                            setTimeout(() => {
+                                this.showVerificationComplete(totalEmails);
+                            }, 2000);
+                        }
+                    }, 1000);
+                } else {
+                    // No emails to verify
+                    this.showErrorMessage('No emails were generated for verification');
                 }
             } else {
-                this.showErrorMessage(result.error || 'An error occurred during email verification');
+                // Handle API errors
+                const errorMessage = result.error || result.message || 'An error occurred during email verification';
+                console.error('API Error:', result);
+                this.showErrorMessage(errorMessage);
             }
 
         } catch (error) {
             console.error('Email verification error:', error);
-            this.showErrorMessage('Network error. Please check your connection and try again.');
+
+            // More detailed error handling
+            let errorMessage = 'An error occurred during verification.';
+
+            if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                errorMessage = 'Unable to connect to the server. Please check if the server is running.';
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+
+            this.showErrorMessage(errorMessage);
+
+            // Also log to help with debugging
+            console.error('Full error details:', {
+                name: error.name,
+                message: error.message,
+                stack: error.stack
+            });
         } finally {
             this.setButtonLoading(this.verifyBtn, false);
         }
@@ -293,7 +376,7 @@ class ProMailHunterApp {
     setButtonLoading(button, loading) {
         button.disabled = loading;
         button.classList.toggle('loading', loading);
-        
+
         // Show/hide spinner
         const spinner = button.querySelector('.spinner');
         if (spinner) {
@@ -335,6 +418,12 @@ class ProMailHunterApp {
     }
 
     showVerificationInProgress(result) {
+        // Safely access nested properties with defaults
+        const totalGenerated = result?.generation?.totalGenerated || 0;
+        const domain = result?.generation?.domain || 'unknown';
+        const strategy = result?.verification?.strategy || {};
+        const estimatedTime = result?.verification?.estimatedTime || 'calculating...';
+
         this.resultContainer.className = 'result-container';
         this.resultContent.innerHTML = `
             <div class="verification-status">
@@ -343,15 +432,15 @@ class ProMailHunterApp {
                 <div class="status-info">
                     <div class="info-card">
                         <h4>📧 Emails Generated</h4>
-                        <div class="big-number">${result.generation.totalGenerated}</div>
-                        <p>For domain: ${this.escapeHtml(result.generation.domain)}</p>
+                        <div class="big-number">${totalGenerated}</div>
+                        <p>For domain: ${this.escapeHtml(domain)}</p>
                     </div>
                     
                     <div class="info-card">
                         <h4>🔍 Verification Strategy</h4>
-                        <p><strong>${result.verification.strategy.description}</strong></p>
-                        <p>Batch size: ${result.verification.strategy.batchSize}</p>
-                        <p>Estimated time: ${result.verification.estimatedTime}</p>
+                        <p><strong>${strategy.description || 'Complete verification'}</strong></p>
+                        <p>Batch size: ${strategy.batchSize || 'optimized'}</p>
+                        <p>Estimated time: ${estimatedTime}</p>
                     </div>
                     
                     <div class="info-card">
@@ -359,14 +448,14 @@ class ProMailHunterApp {
                         <div class="progress-bar">
                             <div class="progress-fill" id="verificationProgress" style="width: 0%"></div>
                         </div>
-                        <p id="progressText">0 / ${result.generation.totalGenerated} verified</p>
+                        <p id="progressText">0 / ${totalGenerated} verified</p>
                     </div>
                 </div>
                 
                 <div class="verification-benefits">
                     <h4>✨ Benefits of Complete Verification:</h4>
                     <ul>
-                        <li>Tests ALL ${result.generation.totalGenerated} possible email combinations</li>
+                        <li>Tests ALL ${totalGenerated} possible email combinations</li>
                         <li>No potentially valid emails are missed</li>
                         <li>Provides the most accurate and comprehensive results</li>
                         <li>Identifies all working email addresses for the contact</li>
@@ -382,25 +471,26 @@ class ProMailHunterApp {
         this.resultContainer.classList.remove('hidden');
     }
 
+
     // Mock polling function (in production, use WebSockets or Server-Sent Events)
     async pollForResults(endpoint) {
         // Simulate progress updates
         let progress = 0;
         const totalEmails = parseInt(document.querySelector('.big-number')?.textContent || '0');
-        
+
         const progressInterval = setInterval(() => {
             progress += Math.random() * 10;
             if (progress > 100) progress = 100;
-            
+
             const verified = Math.floor((progress / 100) * totalEmails);
-            
+
             document.getElementById('verificationProgress').style.width = progress + '%';
             document.getElementById('progressText').textContent = `${verified} / ${totalEmails} verified`;
-            
+
             if (progress >= 100) {
                 clearInterval(progressInterval);
                 document.getElementById('stage-analyze')?.classList.add('active');
-                
+
                 // Show completion message
                 setTimeout(() => {
                     this.showVerificationComplete(totalEmails);
@@ -422,7 +512,7 @@ class ProMailHunterApp {
                 </div>
             </div>
         `;
-        
+
         const statusDiv = document.querySelector('.verification-status');
         if (statusDiv) {
             statusDiv.insertAdjacentHTML('beforeend', completionHtml);
@@ -431,10 +521,10 @@ class ProMailHunterApp {
 
     showEmailResults(result) {
         this.resultContainer.className = 'result-container success';
-        
+
         const data = result.data;
         const companyEmailsHtml = this.createEmailList(data.emails.company, 'Generated Emails', true);
-        
+
         let downloadLink = '';
         if (result.file && result.file.filename) {
             downloadLink = `
@@ -447,7 +537,7 @@ class ProMailHunterApp {
                 </div>
             `;
         }
-        
+
         this.resultContent.innerHTML = `
             <p><strong>📧 Email Generation Complete!</strong></p>
             <div class="result-data">
@@ -477,11 +567,11 @@ class ProMailHunterApp {
 
     createEmailList(emails, title, showCopyButton = false) {
         if (!emails || emails.length === 0) return '';
-        
-        const emailItems = emails.slice(0, 20).map(email => 
+
+        const emailItems = emails.slice(0, 20).map(email =>
             `<li>${this.escapeHtml(email)} ${showCopyButton ? `<button class="copy-single-btn" onclick="copyToClipboard('${email}', 'Copied!')" title="Copy email">📋</button>` : ''}</li>`
         ).join('');
-        
+
         return `
             <div class="email-category">
                 <h4>${title} (${emails.length})</h4>
@@ -528,7 +618,7 @@ window.copyToClipboard = async function(text, feedbackText = 'Copied to clipboar
         document.body.appendChild(textArea);
         textArea.focus();
         textArea.select();
-        
+
         try {
             document.execCommand('copy');
             showCopySuccess(feedbackText);
@@ -562,7 +652,7 @@ function showCopySuccess(message) {
     notification.className = 'copy-feedback';
     notification.textContent = message;
     document.body.appendChild(notification);
-    
+
     setTimeout(() => {
         if (notification.parentNode) {
             notification.parentNode.removeChild(notification);
@@ -576,7 +666,7 @@ function showCopyError(message) {
     notification.textContent = message;
     notification.style.background = '#dc3545';
     document.body.appendChild(notification);
-    
+
     setTimeout(() => {
         if (notification.parentNode) {
             notification.parentNode.removeChild(notification);

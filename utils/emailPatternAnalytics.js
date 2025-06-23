@@ -18,11 +18,11 @@ class EmailPatternAnalytics {
         try {
             const data = await fs.readFile(this.dataFile, 'utf8');
             const parsed = JSON.parse(data);
-            
+
             this.patterns = new Map(parsed.patterns || []);
             this.domainStats = new Map(parsed.domainStats || []);
             this.successfulVerifications = new Map(parsed.successfulVerifications || []);
-            
+
             console.log('📊 Loaded email pattern analytics');
         } catch (error) {
             console.log('📊 No existing analytics data, starting fresh');
@@ -42,9 +42,11 @@ class EmailPatternAnalytics {
             };
 
             const dir = path.dirname(this.dataFile);
-            await fs.mkdir(dir, { recursive: true });
+            await fs.mkdir(dir, {
+                recursive: true
+            });
             await fs.writeFile(this.dataFile, JSON.stringify(data, null, 2));
-            
+
         } catch (error) {
             console.error('Failed to save analytics:', error.message);
         }
@@ -68,33 +70,53 @@ class EmailPatternAnalytics {
         if (/^[a-z]+\.[a-z]+$/.test(lowerUsername)) {
             pattern = 'first.last';
             const parts = lowerUsername.split('.');
-            components = { first: parts[0], last: parts[1] };
+            components = {
+                first: parts[0],
+                last: parts[1]
+            };
         } else if (/^[a-z]+_[a-z]+$/.test(lowerUsername)) {
             pattern = 'first_last';
             const parts = lowerUsername.split('_');
-            components = { first: parts[0], last: parts[1] };
+            components = {
+                first: parts[0],
+                last: parts[1]
+            };
         } else if (/^[a-z]+\-[a-z]+$/.test(lowerUsername)) {
             pattern = 'first-last';
             const parts = lowerUsername.split('-');
-            components = { first: parts[0], last: parts[1] };
+            components = {
+                first: parts[0],
+                last: parts[1]
+            };
         } else if (/^[a-z]\.[a-z]+$/.test(lowerUsername)) {
             pattern = 'f.last';
-            components = { firstInitial: lowerUsername[0], last: lowerUsername.substring(2) };
+            components = {
+                firstInitial: lowerUsername[0],
+                last: lowerUsername.substring(2)
+            };
         } else if (/^[a-z]+\.[a-z]$/.test(lowerUsername)) {
             pattern = 'first.l';
             const parts = lowerUsername.split('.');
-            components = { first: parts[0], lastInitial: parts[1] };
+            components = {
+                first: parts[0],
+                lastInitial: parts[1]
+            };
         } else if (/^[a-z]+[0-9]+$/.test(lowerUsername)) {
             pattern = 'name+number';
             const match = lowerUsername.match(/^([a-z]+)([0-9]+)$/);
-            components = { name: match[1], number: match[2] };
+            components = {
+                name: match[1],
+                number: match[2]
+            };
         } else if (/^[a-z]{2,}$/.test(lowerUsername)) {
             if (lowerUsername.length <= 8) {
                 pattern = 'firstname';
             } else {
                 pattern = 'firstlast';
             }
-            components = { username: lowerUsername };
+            components = {
+                username: lowerUsername
+            };
         }
 
         return {
@@ -114,7 +136,10 @@ class EmailPatternAnalytics {
         const analysis = this.analyzeEmailPattern(email);
         if (!analysis) return;
 
-        const { domain, pattern } = analysis;
+        const {
+            domain,
+            pattern
+        } = analysis;
 
         // Update pattern frequency for domain
         if (!this.patterns.has(domain)) {
@@ -160,7 +185,7 @@ class EmailPatternAnalytics {
     getMostCommonPatterns(domain, limit = 5) {
         const lowerDomain = domain.toLowerCase();
         const stats = this.domainStats.get(lowerDomain);
-        
+
         if (!stats || !stats.patterns) {
             return [];
         }
@@ -183,7 +208,7 @@ class EmailPatternAnalytics {
     getDomainReport(domain) {
         const lowerDomain = domain.toLowerCase();
         const stats = this.domainStats.get(lowerDomain);
-        
+
         if (!stats) {
             return {
                 domain: lowerDomain,
@@ -195,7 +220,10 @@ class EmailPatternAnalytics {
         const commonPatterns = this.getMostCommonPatterns(domain);
         const recentVerifications = (this.successfulVerifications.get(lowerDomain) || [])
             .slice(-10)
-            .map(v => ({ email: v.email, pattern: v.pattern }));
+            .map(v => ({
+                email: v.email,
+                pattern: v.pattern
+            }));
 
         return {
             domain: lowerDomain,
@@ -311,7 +339,7 @@ class EmailPatternAnalytics {
                 .filter(p => simplePatterns.includes(p.pattern))
                 .reduce((sum, p) => sum + parseInt(p.count), 0);
             const simplePercentage = ((simpleTotal / totalVerifications) * 100).toFixed(1);
-            
+
             if (simplePercentage > 20) {
                 insights.push(`Simple patterns (single name) account for ${simplePercentage}% of emails`);
             }
@@ -340,14 +368,14 @@ class EmailPatternAnalytics {
         } else if (format === 'csv') {
             // Convert to CSV format
             const csvRows = ['Domain,Total Verified,Most Common Pattern,Pattern Count'];
-            
+
             for (const report of data.domainReports) {
                 if (report.hasData && report.commonPatterns.length > 0) {
                     const topPattern = report.commonPatterns[0];
                     csvRows.push(`${report.domain},${report.statistics.totalVerified},${topPattern.pattern},${topPattern.count}`);
                 }
             }
-            
+
             return csvRows.join('\n');
         }
 
