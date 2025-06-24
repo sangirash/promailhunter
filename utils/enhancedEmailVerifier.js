@@ -1092,6 +1092,169 @@ class EnhancedEmailVerifier {
         return result;
     }
 
+    // Add these methods to utils/enhancedEmailVerifier.js
+
+/**
+ * Run diagnostic verification on a single email with detailed output
+ */
+async runDiagnosticVerification(email) {
+    console.log('\n' + '='.repeat(70));
+    console.log(`🔍 DIAGNOSTIC VERIFICATION FOR: ${email}`);
+    console.log('='.repeat(70));
+    
+    const [username, domain] = email.split('@');
+    
+    // 1. Domain classification
+    console.log('\n1️⃣ DOMAIN CLASSIFICATION:');
+    console.log(`   Domain: ${domain}`);
+    console.log(`   Corporate: ${this.corporateDomainsWithStrictSecurity.includes(domain.toLowerCase()) ? 'YES' : 'NO'}`);
+    console.log(`   Public: ${this.publicDomains.includes(domain.toLowerCase()) ? 'YES' : 'NO'}`);
+    
+    // 2. Pattern analysis
+    console.log('\n2️⃣ PATTERN ANALYSIS:');
+    const patternCheck = this.checkAgainstKnownPatterns(email);
+    console.log(`   Username: ${username}`);
+    console.log(`   Pattern Match: ${patternCheck.isKnownPattern ? `YES - ${patternCheck.pattern}` : 'NO'}`);
+    console.log(`   Pattern Confidence: ${patternCheck.confidence}`);
+    
+    // 3. DNS/MX check
+    console.log('\n3️⃣ DNS/MX RECORD CHECK:');
+    try {
+        const dns = require('dns').promises;
+        const mxRecords = await dns.resolveMx(domain);
+        console.log(`   MX Records Found: YES (${mxRecords.length} records)`);
+        mxRecords.slice(0, 3).forEach(mx => {
+            console.log(`   - ${mx.exchange} (priority: ${mx.priority})`);
+        });
+    } catch (error) {
+        console.log(`   MX Records Found: NO`);
+        console.log(`   Error: ${error.message}`);
+    }
+    
+    // 4. SMTP check (if not blocked)
+    console.log('\n4️⃣ SMTP MAILBOX CHECK:');
+    if (this.corporateDomainsWithStrictSecurity.includes(domain.toLowerCase())) {
+        console.log(`   Status: SKIPPED (Corporate domain likely blocks SMTP)`);
+    } else {
+        const smtpResult = await this.checkSMTPMailboxExists(email);
+        console.log(`   SMTP Test Performed: ${smtpResult.steps ? 'YES' : 'NO'}`);
+        console.log(`   Result: ${smtpResult.valid === true ? 'VALID' : smtpResult.valid === false ? 'INVALID' : 'INCONCLUSIVE'}`);
+        console.log(`   Mailbox Exists: ${smtpResult.mailboxExists === true ? 'YES' : smtpResult.mailboxExists === false ? 'NO' : 'UNKNOWN'}`);
+        if (smtpResult.smtpResponse) {
+            console.log(`   SMTP Response: ${smtpResult.smtpResponse}`);
+        }
+        if (smtpResult.error) {
+            console.log(`   Error: ${smtpResult.error}`);
+        }
+        if (smtpResult.steps && smtpResult.steps.length > 0) {
+            console.log(`   Steps completed:`);
+            smtpResult.steps.forEach(step => console.log(`   - ${step}`));
+        }
+    }
+    
+    // 5. Run full verification
+    console.log('\n5️⃣ FULL VERIFICATION RESULT:');
+    const fullResult = await this.deepVerifyEmail(email);
+    console.log(`   Valid: ${fullResult.finalResult.valid ? 'YES' : 'NO'}`);
+    console.log(`   Confidence: ${fullResult.finalResult.confidence}`);
+    console.log(`   Reasons:`);
+    fullResult.finalResult.reasons.forEach(reason => console.log(`   - ${reason}`));
+    
+    console.log('\n' + '='.repeat(70));
+    console.log('END DIAGNOSTIC\n');
+    
+    return fullResult;
+}
+
+/**
+ * Test verification with a known good email
+ */
+async testKnownEmail(knownGoodEmail) {
+    console.log(`\n🧪 TESTING WITH KNOWN GOOD EMAIL: ${knownGoodEmail}`);
+    const result = await this.runDiagnosticVerification(knownGoodEmail);
+    
+    if (!result.finalResult.valid) {
+        console.log(`\n⚠️ WARNING: Known good email marked as invalid!`);
+        console.log(`This suggests the verification may be too strict or blocked.`);
+        console.log(`Consider:`);
+        console.log(`1. The domain might be blocking SMTP verification`);
+        console.log(`2. The pattern matching might need adjustment`);
+        console.log(`3. Network/firewall might be blocking outbound SMTP`);
+    } else {
+        console.log(`\n✅ SUCCESS: Known good email correctly validated!`);
+    }
+    
+    return result;
+}
+
+/**
+ * Batch verification with detailed statistics
+ */
+async verifyEmailBatchWithStats(emails, options = {}) {
+    console.log(`\n📊 BATCH VERIFICATION STATISTICS`);
+    console.log(`Total emails to verify: ${emails.length}`);
+    
+    const startTime = Date.now();
+    const results = await this.verifyEmailBatch(emails, options);
+    const duration = Date.now() - startTime;
+    
+    // Compile statistics
+    const stats = {
+        total: results.length,
+        valid: results.filter(r => r.finalResult?.valid === true).length,
+        invalid: results.filter(r => r.finalResult?.valid === false).length,
+        byConfidence: {
+            high: results.filter(r => r.finalResult?.confidence === 'high').length,
+            medium: results.filter(r => r.finalResult?.confidence === 'medium').length,
+            low: results.filter(r => r.finalResult?.confidence === 'low').length,
+            unknown: results.filter(r => r.finalResult?.confidence === 'unknown').length
+        },
+        byReason: {},
+        patterns: {},
+        duration: duration
+    };
+    
+    // Analyze reasons
+    results.forEach(r => {
+        if (r.finalResult?.reasons) {
+            r.finalResult.reasons.forEach(reason => {
+                const key = reason.substring(0, 50);
+                stats.byReason[key] = (stats.byReason[key] || 0) + 1;
+            });
+        }
+        
+        if (r.finalResult?.patternMatch) {
+            stats.patterns[r.finalResult.patternMatch] = (stats.patterns[r.finalResult.patternMatch] || 0) + 1;
+        }
+    });
+    
+    // Print statistics
+    console.log(`\n📈 RESULTS SUMMARY:`);
+    console.log(`Valid: ${stats.valid} (${((stats.valid/stats.total)*100).toFixed(1)}%)`);
+    console.log(`Invalid: ${stats.invalid} (${((stats.invalid/stats.total)*100).toFixed(1)}%)`);
+    console.log(`\nBy Confidence:`);
+    Object.entries(stats.byConfidence).forEach(([level, count]) => {
+        if (count > 0) {
+            console.log(`  ${level}: ${count} (${((count/stats.total)*100).toFixed(1)}%)`);
+        }
+    });
+    console.log(`\nTop Reasons:`);
+    Object.entries(stats.byReason)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .forEach(([reason, count]) => {
+            console.log(`  "${reason}...": ${count} times`);
+        });
+    console.log(`\nPattern Matches:`);
+    Object.entries(stats.patterns).forEach(([pattern, count]) => {
+        console.log(`  ${pattern}: ${count}`);
+    });
+    console.log(`\nVerification took: ${(duration/1000).toFixed(1)} seconds`);
+    console.log(`Average per email: ${(duration/stats.total).toFixed(0)}ms`);
+    
+    return { results, stats };
+}
+
     /**
      * Print detailed verification summary
      */

@@ -54,12 +54,33 @@ async function testVerificationFix() {
         'doe.john@example.com'
     ];
     
-    const batchResult = await verifier.verifyEmailBatchWithStats(sampleEmails, {
-        enableSMTP: true,
-        deepVerification: true,
-        concurrency: 2,
-        delay: 2000
-    });
+    // First check if the method exists, otherwise use regular batch verification
+    if (typeof verifier.verifyEmailBatchWithStats === 'function') {
+        const batchResult = await verifier.verifyEmailBatchWithStats(sampleEmails, {
+            enableSMTP: true,
+            deepVerification: true,
+            concurrency: 2,
+            delay: 2000
+        });
+    } else {
+        console.log('Using regular batch verification (add verifyEmailBatchWithStats method for detailed stats)\n');
+        
+        const results = await verifier.verifyEmailBatch(sampleEmails, {
+            enableSMTP: true,
+            deepVerification: true,
+            concurrency: 2,
+            delay: 2000
+        });
+        
+        // Manual statistics
+        const validCount = results.filter(r => r.finalResult?.valid === true).length;
+        const invalidCount = results.filter(r => r.finalResult?.valid === false).length;
+        
+        console.log(`\n📈 RESULTS SUMMARY:`);
+        console.log(`Total: ${results.length}`);
+        console.log(`Valid: ${validCount} (${((validCount/results.length)*100).toFixed(1)}%)`);
+        console.log(`Invalid: ${invalidCount} (${((invalidCount/results.length)*100).toFixed(1)}%)`);
+    }
     
     console.log('\n✅ Test complete! Check the statistics above.');
     console.log('\nIf emails are still being marked as invalid when they shouldn\'t be:');

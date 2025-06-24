@@ -7,108 +7,124 @@
     <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
+    <!-- header class="header">
+        <img src="/images/ProMailHunter_Logo.png" alt="ProMailHunter Logo" class="logo">
+    </header -->
+    <img src="/images/PMH_Banner.png" alt="Custom Banner" class="custom-banner">
+    <!-- div class="banner">
+        <div class="banner-overlay"></div>
+        <div class="banner-content" align="right">
+            <h1>Unlock Corporate Emails for Success</h1>
+            <p>Boost Email Marketing, Generate Leads, and Find Job Opportunities</p>
+        </div>
+    </div -->
+
     <div class="container">
-        <h1>ProMailHunter</h1>
-        <p>Generate and verify professional email addresses for any company domain</p>
-        
-        <form id="contactForm">
-            <div class="mandatory-note">
-                <p><strong>⚠️ All fields (First Name, Last Name, Company Domain) are required</strong></p>
-            </div>
-            
-            <div class="form-group">
-                <label for="firstName">First Name *</label>
-                <input type="text" id="firstName" name="firstName" maxlength="50" required>
-                <span id="firstName-error" class="error"></span>
-            </div>
+        <div class="ad-placeholder" id="ad-top">Ad Placeholder (Top)</div>
 
-            <div class="form-group">
-                <label for="lastName">Last Name *</label>
-                <input type="text" id="lastName" name="lastName" maxlength="50" required>
-                <span id="lastName-error" class="error"></span>
-            </div>
+        <div class="main-content">
+            <div class="ad-sidebar left-ad">Ad Placeholder (Left)</div>
+            <div class="form-wrapper">
+                <form id="contactForm" class="centered-form">
+                    <div class="mandatory-note">
+                        <p><strong>⚠️ All fields (First Name, Last Name, Company Domain) are required</strong></p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="firstName">First Name *</label>
+                        <input type="text" id="firstName" name="firstName" maxlength="50" required>
+                        <span id="firstName-error" class="error"></span>
+                    </div>
 
-            <div class="form-group">
-                <label for="companyName">Company Domain *</label>
-                <input type="text" id="companyName" name="companyName" maxlength="100" required>
-                <div id="domainValidator" class="domain-validator">
-                    <span id="validationIcon" class="validation-icon"></span>
-                    <span id="validationMessage" class="validation-message"></span>
-                </div>
-                <span id="companyName-error" class="error"></span>
-                <span id="domainRestrictionNote" class="domain-restriction-note"></span>
-                <div class="domain-help">
-                    <p>📝 Enter the company's email domain:</p>
-                    <ul>
-                        <li>company.com - Just the domain</li>
-                        <li>[email protected] - Any email from that domain</li>
-                        <li>https://company.com - Company website URL</li>
-                        <li>www.company.com - Website with www</li>
-                    </ul>
-                </div>
-            </div>
+                    <div class="form-group">
+                        <label for="lastName">Last Name *</label>
+                        <input type="text" id="lastName" name="lastName" maxlength="50" required>
+                        <span id="lastName-error" class="error"></span>
+                    </div>
 
-            <div class="action-buttons">
-                <button type="button" id="generateBtn" class="action-btn generate-btn" disabled>
-                    <span class="btn-text">📧 Generate Emails Only</span>
-                    <span class="spinner"></span>
-                    <div class="action-description">Quick generation without verification</div>
-                </button>
-                
-                <button type="button" id="verifyBtn" class="action-btn verify-btn" disabled>
-                    <span class="btn-text">🔍 Generate & Deep Verify</span>
-                    <span class="spinner"></span>
-                    <div class="action-description">Verify ALL emails for complete results</div>
-                </button>
-            </div>
+                    <div class="form-group">
+                        <label for="companyName">Company Domain *</label>
+                        <input type="text" id="companyName" name="companyName" maxlength="100" required>
+                        <div id="domainValidator" class="domain-validator">
+                            <span id="validationIcon" class="validation-icon"></span>
+                            <span id="validationMessage" class="validation-message"></span>
+                        </div>
+                        <span id="companyName-error" class="error"></span>
+                        <span id="domainRestrictionNote" class="domain-restriction-note"></span>
+                        
+                        <div class="domain-help">
+                            <p>📝 Enter the company's email domain:</p>
+                            <ul>
+                                <li>company.com - Just the domain</li>
+                                <li>[email protected] - Any email from that domain</li>
+                                <li>https://company.com - Company website URL</li>
+                                <li>www.company.com - Website with www</li>
+                            </ul>
+                        </div>
+                    </div>
 
-            <div class="form-tip">
-                <p>💡 Tip: Use "Generate Only" for quick results, or "Deep Verify" to test ALL generated emails and confirm which ones actually exist.</p>
+                    <div class="action-buttons">
+                        <button type="button" id="generateBtn" class="action-btn generate-btn" disabled>
+                            <span class="btn-text">📧 Generate</span>
+                            <span class="spinner"></span>
+                        </button>
+                        
+                        <button type="button" id="verifyBtn" class="action-btn verify-btn" disabled>
+                            <span class="btn-text">🔍 Verify</span>
+                            <span class="spinner"></span>
+                        </button>
+                    </div>
+
+                    <div class="form-tip">
+                        <p>💡 Tip: Use "Generate" for quick results, or "Verify" to test all emails.</p>
+                    </div>
+                </form>
             </div>
-        </form>
+            <div class="ad-sidebar right-ad">Ad Placeholder (Right)</div>
+        </div>
 
         <div id="result" class="result-container hidden">
             <h2>Results</h2>
             <div id="resultContent"></div>
         </div>
-    </div>
 
-    <div class="info-section">
-        <h2>🎯 How It Works</h2>
-        <ul>
-            <li><strong>Domain Validation:</strong> Real-time verification as you type</li>
-            <li><strong>Smart Generation:</strong> Creates personal name patterns only (no generic emails)</li>
-            <li><strong>Complete Verification:</strong> Tests ALL generated emails, not just a subset</li>
-            <li><strong>Deep Verification:</strong> Actually tests if mailboxes exist via SMTP</li>
-            <li><strong>Corporate Intelligence:</strong> Special handling for enterprise domains</li>
-        </ul>
+        <div class="info-section">
+            <h2>🎯 How It Works</h2>
+            <ul>
+                <li><strong>Domain Validation:</strong> Real-time verification</li>
+                <li><strong>Smart Generation:</strong> Personal name patterns only</li>
+                <li><strong>Complete Verification:</strong> Tests all emails</li>
+                <li><strong>Deep Verification:</strong> Checks mailboxes via SMTP</li>
+                <li><strong>Corporate Focus:</strong> Targets enterprise domains</li>
+            </ul>
 
-        <h2>📊 Verification Methods Comparison</h2>
-        <div class="verification-comparison">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Method</th>
-                        <th>Speed</th>
-                        <th>Coverage</th>
-                        <th>Best For</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Generate Only</td>
-                        <td>⚡ Instant</td>
-                        <td>N/A</td>
-                        <td>Quick email list creation</td>
-                    </tr>
-                    <tr>
-                        <td>Deep Verify</td>
-                        <td>🐌 1-3 min</td>
-                        <td>🎯 100% (ALL emails)</td>
-                        <td>Finding all real mailboxes</td>
-                    </tr>
-                </tbody>
-            </table>
+            <h2>📊 Verification Options</h2>
+            <div class="verification-comparison">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>Speed</th>
+                            <th>Coverage</th>
+                            <th>Best For</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Generate</td>
+                            <td>⚡ Instant</td>
+                            <td>N/A</td>
+                            <td>Quick list creation</td>
+                        </tr>
+                        <tr>
+                            <td>Verify</td>
+                            <td>🐌 1-3 min</td>
+                            <td>🎯 100%</td>
+                            <td>All real mailboxes</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
