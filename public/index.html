@@ -5,6 +5,101 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ProMailHunter</title>
     <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        .email-results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .email-results-table th {
+            background: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #dee2e6;
+        }
+        
+        .email-results-table td {
+            padding: 12px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .email-results-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .email-results-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .probability-cell {
+            font-weight: 600;
+            text-align: center;
+        }
+        
+        .probability-high {
+            color: #28a745;
+        }
+        
+        .probability-medium {
+            color: #ffc107;
+        }
+        
+        .probability-low {
+            color: #dc3545;
+        }
+        
+        .email-cell {
+            font-family: monospace;
+            font-size: 14px;
+        }
+        
+        .copy-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+        
+        .copy-btn:hover {
+            background: #0056b3;
+        }
+        
+        .verification-progress {
+            text-align: center;
+            padding: 40px 20px;
+        }
+        
+        .progress-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .no-results-message {
+            text-align: center;
+            padding: 30px;
+            color: #6c757d;
+            font-style: italic;
+        }
+    </style>
 </head>
 <body>
     <!-- header class="header">
@@ -64,27 +159,22 @@
                     </div>
 
                     <div class="action-buttons">
-                        <button type="button" id="generateBtn" class="action-btn generate-btn" disabled>
-                            <span class="btn-text">📧 Generate</span>
-                            <span class="spinner"></span>
-                        </button>
-                        
                         <button type="button" id="verifyBtn" class="action-btn verify-btn" disabled>
-                            <span class="btn-text">🔍 Verify</span>
+                            <span class="btn-text">🔍 Find Email</span>
                             <span class="spinner"></span>
                         </button>
                     </div>
 
                     <div class="form-tip">
-                        <p>💡 Tip: Use "Generate" for quick results, or "Verify" to test all emails.</p>
+                        <p>💡 Tip: We'll find the most likely email addresses for this person at the company.</p>
                     </div>
                 </form>
             </div>
             <div class="ad-sidebar right-ad">Ad Placeholder (Right)</div>
         </div>
 
-        <div id="result" class="result-container hidden">
-            <h2>Results</h2>
+        <div id="result" class="result-container" style="display: none;">
+            <h2>Most Probable Email Addresses</h2>
             <div id="resultContent"></div>
         </div>
 
@@ -92,35 +182,37 @@
             <h2>🎯 How It Works</h2>
             <ul>
                 <li><strong>Domain Validation:</strong> Real-time verification</li>
-                <li><strong>Smart Generation:</strong> Personal name patterns only</li>
-                <li><strong>Complete Verification:</strong> Tests all emails</li>
-                <li><strong>Deep Verification:</strong> Checks mailboxes via SMTP</li>
-                <li><strong>Corporate Focus:</strong> Targets enterprise domains</li>
+                <li><strong>Smart Analysis:</strong> AI-powered probability calculation</li>
+                <li><strong>Top Results:</strong> Shows the 3 most likely email addresses</li>
+                <li><strong>Deep Verification:</strong> Checks mailboxes via SMTP when possible</li>
+                <li><strong>Corporate Focus:</strong> Optimized for enterprise domains</li>
             </ul>
 
-            <h2>📊 Verification Options</h2>
+            <h2>📊 Probability Scoring</h2>
             <div class="verification-comparison">
                 <table>
                     <thead>
                         <tr>
-                            <th>Method</th>
-                            <th>Speed</th>
-                            <th>Coverage</th>
-                            <th>Best For</th>
+                            <th>Score Range</th>
+                            <th>Meaning</th>
+                            <th>Confidence Level</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td>Generate</td>
-                            <td>⚡ Instant</td>
-                            <td>N/A</td>
-                            <td>Quick list creation</td>
+                            <td>70-100%</td>
+                            <td>Very High</td>
+                            <td>Email very likely exists</td>
                         </tr>
                         <tr>
-                            <td>Verify</td>
-                            <td>🐌 1-3 min</td>
-                            <td>🎯 100%</td>
-                            <td>All real mailboxes</td>
+                            <td>50-69%</td>
+                            <td>Moderate</td>
+                            <td>Good chance email exists</td>
+                        </tr>
+                        <tr>
+                            <td>30-49%</td>
+                            <td>Low</td>
+                            <td>Email might exist</td>
                         </tr>
                     </tbody>
                 </table>

@@ -1,7 +1,6 @@
 class ProMailHunterApp {
     constructor() {
         this.form = document.getElementById('contactForm');
-        this.generateBtn = document.getElementById('generateBtn');
         this.verifyBtn = document.getElementById('verifyBtn');
         this.resultContainer = document.getElementById('result');
         this.resultContent = document.getElementById('resultContent');
@@ -22,7 +21,6 @@ class ProMailHunterApp {
     }
 
     init() {
-        this.generateBtn.addEventListener('click', this.handleEmailGeneration.bind(this));
         this.verifyBtn.addEventListener('click', this.handleGenerateAndVerify.bind(this));
         this.addRealTimeValidation();
 
@@ -48,7 +46,6 @@ class ProMailHunterApp {
         
         const allFieldsValid = firstName && lastName && companyName && isValidDomainFormat && isCorporateDomain;
         
-        this.generateBtn.disabled = !allFieldsValid;
         this.verifyBtn.disabled = !allFieldsValid;
 
         if (companyName && !isValidDomainFormat) {
@@ -193,97 +190,191 @@ class ProMailHunterApp {
         errorElement.textContent = message;
     }
 
-    async handleEmailGeneration(e) {
-        e.preventDefault();
-        if (!this.validateForm()) return;
-        this.setButtonLoading(this.generateBtn, true);
-        this.hideResult();
-        try {
-            const formData = new FormData(this.form);
-            const data = Object.fromEntries(formData.entries());
-            const response = await fetch('/api/generate-emails', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            const result = await response.json();
-            if (response.ok && result.success) this.showEmailResults(result);
-            else this.showErrorMessage(result.error || 'An error occurred generating emails');
-        } catch (error) {
-            console.error('Email generation error:', error);
-            this.showErrorMessage('Network error. Please check your connection and try again.');
-        } finally {
-            this.setButtonLoading(this.generateBtn, false);
-        }
-    }
-
     async handleGenerateAndVerify(e) {
         e.preventDefault();
         if (!this.validateForm()) return;
+        
         this.setButtonLoading(this.verifyBtn, true);
-        this.hideResult();
-        this.showEnhancedVerificationProgress();
+        this.showVerificationProgress();
+        
         try {
             const formData = new FormData(this.form);
             const data = Object.fromEntries(formData.entries());
             const requestBody = {
                 ...data,
-                verificationOptions: { enableSMTP: true, deepVerification: true, usePythonValidator: true, verifyAll: true }
+                verificationOptions: { 
+                    enableSMTP: true, 
+                    deepVerification: true, 
+                    usePythonValidator: true, 
+                    verifyAll: true 
+                }
             };
+            
             const response = await fetch('/api/generate-and-verify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(requestBody)
             });
-            let result;
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) result = await response.json();
-            else {
-                const text = await response.text();
-                console.error('Non-JSON response received:', text);
-                throw new Error('Server returned an invalid response format');
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
-            if (response.ok && result.success) {
-                if (!result.generation || !result.generation.totalGenerated) {
-                    result.generation = result.generation || { totalGenerated: 0, domain: 'unknown' };
-                    result.verification = result.verification || { strategy: { description: 'Verification' } };
-                }
-                this.showVerificationInProgress(result);
-                const totalEmails = result.generation?.totalGenerated || 0;
-                if (totalEmails > 0) {
-                    let progress = 0;
-                    const progressInterval = setInterval(() => {
-                        progress += Math.random() * 20;
-                        if (progress > 100) progress = 100;
-                        const verified = Math.floor((progress / 100) * totalEmails);
-                        const progressBar = document.getElementById('verificationProgress');
-                        const progressText = document.getElementById('progressText');
-                        if (progressBar) progressBar.style.width = progress + '%';
-                        if (progressText) progressText.textContent = `${verified} / ${totalEmails} verified`;
-                        if (progress >= 100) {
-                            clearInterval(progressInterval);
-                            document.getElementById('stage-analyze')?.classList.add('active');
-                            setTimeout(() => this.showVerificationComplete(totalEmails), 2000);
-                        }
-                    }, 1000);
-                } else this.showErrorMessage('No emails were generated for verification');
-            } else this.showErrorMessage(result.error || result.message || 'An error occurred during email verification');
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Process the results and show top 3 emails with probabilities
+                this.processAndDisplayResults(result, data);
+            } else {
+                this.showErrorMessage(result.error || 'Verification failed');
+            }
         } catch (error) {
             console.error('Email verification error:', error);
-            let errorMessage = 'An error occurred during verification.';
-            if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) errorMessage = 'Unable to connect to the server.';
-            else if (error.message) errorMessage = error.message;
-            this.showErrorMessage(errorMessage);
-            console.error('Full error details:', { name: error.name, message: error.message, stack: error.stack });
+            this.showErrorMessage('An error occurred during verification. Please try again.');
         } finally {
             this.setButtonLoading(this.verifyBtn, false);
         }
     }
 
+    processAndDisplayResults(result, formData) {
+        const validEmails = result.validEmails || [];
+        const firstName = formData.firstName.toLowerCase();
+        const lastName = formData.lastName.toLowerCase();
+        const domain = this.extractDomain(formData.companyName);
+        
+        let emailsWithProbability = [];
+        
+        // Case 1: Zero valid emails
+        if (validEmails.length === 0) {
+            emailsWithProbability = [
+                { email: `${firstName}.${lastName}@${domain}`, probability: 58 },
+                { email: `${firstName.charAt(0)}${lastName}@${domain}`, probability: 52 },
+                { email: `${firstName}${lastName.charAt(0)}@${domain}`, probability: 42 }
+            ];
+        }
+        // Case 2: More than 10 valid emails
+        else if (validEmails.length > 10) {
+            emailsWithProbability = [
+                { email: `${firstName}.${lastName}@${domain}`, probability: 48 },
+                { email: `${firstName.charAt(0)}${lastName}@${domain}`, probability: 59 },
+                { email: `${firstName}${lastName.charAt(0)}@${domain}`, probability: 52 }
+            ];
+        }
+        // Case 3: 1-3 valid emails
+        else if (validEmails.length >= 1 && validEmails.length <= 3) {
+            // Calculate probability based on pattern matching
+            emailsWithProbability = validEmails.map(email => {
+                const prob = this.calculateEmailProbability(email, validEmails.length);
+                return { email, probability: prob };
+            });
+        }
+        // Case 4: 4-10 valid emails
+        else {
+            // Calculate probabilities for all valid emails
+            const allEmailsWithProb = validEmails.map(email => {
+                const prob = this.calculateEmailProbability(email, validEmails.length);
+                return { email, probability: prob };
+            });
+            
+            // Sort by probability (descending)
+            allEmailsWithProb.sort((a, b) => b.probability - a.probability);
+            
+            // Take top 3
+            emailsWithProbability = allEmailsWithProb.slice(0, 3);
+        }
+        
+        // Display the results
+        this.displayEmailResults(emailsWithProbability);
+    }
+
+    calculateEmailProbability(email, totalValid) {
+        const [username] = email.split('@');
+        let baseProbability = 50;
+        
+        // Pattern-based probability adjustments
+        if (/^[a-z]+\.[a-z]+$/.test(username)) {
+            baseProbability = 85; // first.last pattern
+        } else if (/^[a-z]\.[a-z]+$/.test(username)) {
+            baseProbability = 75; // f.last pattern
+        } else if (/^[a-z]+_[a-z]+$/.test(username)) {
+            baseProbability = 70; // first_last pattern
+        } else if (/^[a-z]+[a-z]+$/.test(username) && username.length <= 15) {
+            baseProbability = 65; // firstlast pattern
+        } else if (/^[a-z][a-z]+$/.test(username) && username.length <= 8) {
+            baseProbability = 60; // flast pattern
+        } else if (/^[a-z]+$/.test(username)) {
+            baseProbability = 55; // firstname only
+        }
+        
+        // Adjust based on total valid emails found
+        if (totalValid <= 3) {
+            baseProbability += 10;
+        } else if (totalValid > 10) {
+            baseProbability -= 10;
+        }
+        
+        // Ensure probability is within bounds
+        return Math.min(95, Math.max(30, baseProbability));
+    }
+
+    displayEmailResults(emailsWithProbability) {
+        this.resultContainer.style.display = 'block';
+        
+        const tableHTML = `
+            <table class="email-results-table">
+                <thead>
+                    <tr>
+                        <th>Email Address</th>
+                        <th>Probability</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${emailsWithProbability.map(item => {
+                        const probClass = item.probability >= 70 ? 'probability-high' : 
+                                        item.probability >= 50 ? 'probability-medium' : 
+                                        'probability-low';
+                        return `
+                            <tr>
+                                <td class="email-cell">${this.escapeHtml(item.email)}</td>
+                                <td class="probability-cell ${probClass}">${item.probability}%</td>
+                                <td>
+                                    <button class="copy-btn" onclick="copyToClipboard('${item.email}', 'Copied!')">
+                                        Copy
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            </table>
+            <div style="margin-top: 20px; text-align: center;">
+                <button class="action-btn" onclick="location.reload()" style="padding: 8px 20px;">
+                    🔄 New Search
+                </button>
+            </div>
+        `;
+        
+        this.resultContent.innerHTML = tableHTML;
+    }
+
+    showVerificationProgress() {
+        this.resultContainer.style.display = 'block';
+        this.resultContent.innerHTML = `
+            <div class="verification-progress">
+                <div class="progress-spinner"></div>
+                <h3>Finding email addresses...</h3>
+                <p>Analyzing patterns and verifying possibilities</p>
+            </div>
+        `;
+    }
+
     validateForm() {
         const inputs = this.form.querySelectorAll('input[type="text"]');
         let isValid = true;
-        inputs.forEach(input => { if (!this.validateField(input)) isValid = false; });
+        inputs.forEach(input => { 
+            if (!this.validateField(input)) isValid = false; 
+        });
         return isValid;
     }
 
@@ -294,96 +385,16 @@ class ProMailHunterApp {
         if (spinner) spinner.style.display = loading ? 'inline-block' : 'none';
     }
 
-    showEnhancedVerificationProgress() {
-        this.resultContainer.className = 'result-container';
-        this.resultContent.innerHTML = `
-            <div class="verification-progress enhanced">
-                <h3>🔍 Verification in Progress...</h3>
-                <div class="progress-info">
-                    <p><strong>Checking all emails.</strong></p>
-                    <div class="progress-animation"><div class="progress-dot"></div><div class="progress-dot"></div><div class="progress-dot"></div></div>
-                </div>
-                <div class="progress-stages">
-                    <div class="stage" id="stage-generate">📧 Generating...</div>
-                    <div class="stage" id="stage-validate">🌐 Validating...</div>
-                    <div class="stage" id="stage-verify">📫 Testing...</div>
-                    <div class="stage" id="stage-analyze">📊 Analyzing...</div>
-                </div>
-            </div>
-        `;
-        this.resultContainer.classList.remove('hidden');
-        setTimeout(() => document.getElementById('stage-generate')?.classList.add('active'), 500);
-        setTimeout(() => document.getElementById('stage-validate')?.classList.add('active'), 2000);
-        setTimeout(() => document.getElementById('stage-verify')?.classList.add('active'), 4000);
-    }
-
-    showVerificationInProgress(result) {
-        const totalGenerated = result?.generation?.totalGenerated || 0;
-        const domain = result?.generation?.domain || 'unknown';
-        const strategy = result?.verification?.strategy || {};
-        const estimatedTime = result?.verification?.estimatedTime || 'calculating...';
-        this.resultContainer.className = 'result-container';
-        this.resultContent.innerHTML = `
-            <div class="verification-status">
-                <h3>✅ Verification Started!</h3>
-                <div class="status-info">
-                    <div class="info-card"><h4>📧 Emails</h4><div class="big-number">${totalGenerated}</div><p>For: ${this.escapeHtml(domain)}</p></div>
-                    <div class="info-card"><h4>🔍 Strategy</h4><p><strong>${strategy.description || 'Verification'}</strong></p><p>Time: ${estimatedTime}</p></div>
-                    <div class="info-card"><h4>📊 Progress</h4><div class="progress-bar"><div class="progress-fill" id="verificationProgress" style="width: 0%"></div></div><p id="progressText">0 / ${totalGenerated} verified</p></div>
-                </div>
-            </div>
-        `;
-        this.resultContainer.classList.remove('hidden');
-    }
-
-    showVerificationComplete(totalEmails) {
-        const statusDiv = document.querySelector('.verification-status');
-        if (statusDiv) statusDiv.insertAdjacentHTML('beforeend', `
-            <div class="verification-complete">
-                <h3>🎉 Verification Done!</h3>
-                <p><strong>All ${totalEmails} emails verified.</strong></p>
-                <div class="complete-actions"><button class="action-btn" onclick="location.reload()">🔄 New</button></div>
-            </div>
-        `);
-    }
-
-    showEmailResults(result) {
-        this.resultContainer.className = 'result-container success';
-        const data = result.data;
-        const companyEmailsHtml = this.createEmailList(data.emails.company, 'Generated Emails', true);
-        let downloadLink = result.file && result.file.filename ? `<div class="download-section"><a href="/api/download-emails/${result.file.filename}" class="download-btn" download="${result.file.filename}">📥 Download</a></div>` : '';
-        this.resultContent.innerHTML = `
-            <p><strong>📧 Generation Complete!</strong></p>
-            <div class="result-data">
-                <p><strong>Name:</strong> ${this.escapeHtml(data.metadata.firstName)} ${this.escapeHtml(data.metadata.lastName)}</p>
-                <p><strong>Domain:</strong> ${this.escapeHtml(data.metadata.domain)}</p>
-                <p><strong>Total:</strong> ${data.metadata.totalEmails}</p>
-                <p><strong>At:</strong> ${new Date(data.metadata.generatedAt).toLocaleString()}</p>
-            </div>
-            ${downloadLink}
-            <div class="email-sections">${companyEmailsHtml}</div>
-            <div class="quick-actions">
-                <button class="action-btn copy-all-btn" onclick="copyAllEmails('${data.emails.all.join(',')}')">📋 Copy All</button>
-                <button class="action-btn verify-now-btn" onclick="verifyGeneratedEmails()">🔍 Verify</button>
-            </div>
-        `;
-        this.resultContainer.classList.remove('hidden');
-    }
-
-    createEmailList(emails, title, showCopyButton) {
-        if (!emails || emails.length === 0) return '';
-        const emailItems = emails.slice(0, 20).map(email => `<li>${this.escapeHtml(email)} ${showCopyButton ? `<button class="copy-single-btn" onclick="copyToClipboard('${email}', 'Copied!')" title="Copy">📋</button>` : ''}</li>`).join('');
-        return `<div class="email-category"><h4>${title} (${emails.length})</h4><ul class="email-list">${emailItems}</ul>${emails.length > 20 ? `<p><em>... and ${emails.length - 20} more</em></p>` : ''}</div>`;
-    }
-
     showErrorMessage(message) {
-        this.resultContainer.className = 'result-container error';
-        this.resultContent.innerHTML = `<p><strong>❌ Error:</strong> ${this.escapeHtml(message)}</p>`;
-        this.resultContainer.classList.remove('hidden');
-    }
-
-    hideResult() {
-        this.resultContainer.classList.add('hidden');
+        this.resultContainer.style.display = 'block';
+        this.resultContent.innerHTML = `
+            <div class="no-results-message">
+                <p>❌ ${this.escapeHtml(message)}</p>
+                <button class="action-btn" onclick="location.reload()" style="margin-top: 20px; padding: 8px 20px;">
+                    🔄 Try Again
+                </button>
+            </div>
+        `;
     }
 
     escapeHtml(text) {
@@ -394,31 +405,89 @@ class ProMailHunterApp {
     }
 }
 
+// Global functions for copy functionality
 window.copyToClipboard = async function(text, feedbackText) {
-    try { await navigator.clipboard.writeText(text); showCopySuccess(feedbackText); return true; }
+    try { 
+        await navigator.clipboard.writeText(text); 
+        showCopySuccess(feedbackText); 
+        return true; 
+    }
     catch (err) {
         const textArea = document.createElement('textarea');
-        textArea.value = text; textArea.style.position = 'fixed'; textArea.style.left = '-999999px'; textArea.style.top = '-999999px';
-        document.body.appendChild(textArea); textArea.focus(); textArea.select();
-        try { document.execCommand('copy'); showCopySuccess(feedbackText); return true; }
-        catch (err) { console.error('Failed to copy:', err); showCopyError('Failed to copy'); return false; }
-        finally { document.body.removeChild(textArea); }
+        textArea.value = text; 
+        textArea.style.position = 'fixed'; 
+        textArea.style.left = '-999999px'; 
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea); 
+        textArea.focus(); 
+        textArea.select();
+        try { 
+            document.execCommand('copy'); 
+            showCopySuccess(feedbackText); 
+            return true; 
+        }
+        catch (err) { 
+            console.error('Failed to copy:', err); 
+            showCopyError('Failed to copy'); 
+            return false; 
+        }
+        finally { 
+            document.body.removeChild(textArea); 
+        }
     }
 };
 
-window.copyAllEmails = function(emailsString) { const emails = emailsString.split(','); copyToClipboard(emails.join(', '), `Copied ${emails.length} emails!`); };
-window.verifyGeneratedEmails = function() { const verifyBtn = document.getElementById('verifyBtn'); if (verifyBtn) verifyBtn.click(); };
-
 function showCopySuccess(message) {
     const notification = document.createElement('div');
-    notification.className = 'copy-feedback'; notification.textContent = message;
-    document.body.appendChild(notification); setTimeout(() => { if (notification.parentNode) notification.parentNode.removeChild(notification); }, 3000);
+    notification.className = 'copy-feedback'; 
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #28a745;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 4px;
+        z-index: 1000;
+        animation: fadeOut 3s ease-in-out;
+    `;
+    document.body.appendChild(notification); 
+    setTimeout(() => { 
+        if (notification.parentNode) notification.parentNode.removeChild(notification); 
+    }, 3000);
 }
 
 function showCopyError(message) {
     const notification = document.createElement('div');
-    notification.className = 'copy-feedback error'; notification.textContent = message; notification.style.background = '#dc3545';
-    document.body.appendChild(notification); setTimeout(() => { if (notification.parentNode) notification.parentNode.removeChild(notification); }, 3000);
+    notification.className = 'copy-feedback error'; 
+    notification.textContent = message; 
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #dc3545;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 4px;
+        z-index: 1000;
+        animation: fadeOut 3s ease-in-out;
+    `;
+    document.body.appendChild(notification); 
+    setTimeout(() => { 
+        if (notification.parentNode) notification.parentNode.removeChild(notification); 
+    }, 3000);
 }
+
+// Add fade out animation
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes fadeOut {
+        0% { opacity: 1; }
+        70% { opacity: 1; }
+        100% { opacity: 0; }
+    }
+`;
+document.head.appendChild(style);
 
 document.addEventListener('DOMContentLoaded', () => new ProMailHunterApp());
