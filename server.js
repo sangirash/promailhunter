@@ -13,6 +13,9 @@ const apiRoutes = require('./routes/api');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// IMPORTANT: line added to trust proxy headers
+app.set('trust proxy', true);
+
 // Security middleware
 app.use(helmet(helmetConfig));
 app.use(cors(corsConfig));
