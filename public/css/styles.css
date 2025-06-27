@@ -1,4 +1,4 @@
-/* Updated styles to resemble speediest.net with new color coding */
+/* Updated styles to resemble speediest.net with new color coding and navigation */
 body {
     font-family: Arial, sans-serif;
     margin: 0;
@@ -22,11 +22,9 @@ body {
     width: 100%;
     max-width: 1200px;
     height: 250px;
- /*   background: linear-gradient(to right, #007bff, #28a745); 
-    color: white; */
     text-align: center;
     padding: 20px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); 
+  /*  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); */
     margin: 0 auto 20px;
     display: flex;
     align-items: center;
@@ -34,18 +32,24 @@ body {
     position: relative;
     overflow: hidden;
 }
+
 .banner-content {
     z-index: 1;
 }
+
 .banner h1 {
     font-size: 2.5em;
     margin: 0 0 10px;
     font-weight: 700;
+    color: #fff;
 }
+
 .banner p {
     font-size: 1.2em;
     margin: 0 0 15px;
+    color: #fff;
 }
+
 .banner .cta-button {
     background-color: #fff;
     color: #007bff;
@@ -58,9 +62,11 @@ body {
     text-decoration: none;
     transition: background-color 0.3s; 
 }
+
 .banner .cta-button:hover {
     background-color: #e9ecef;
 }
+
 .banner-overlay {
     position: absolute;
     top: 0;
@@ -72,6 +78,7 @@ body {
     opacity: 0.1;
     z-index: 0;
 }
+
 @media (max-width: 768px) {
     .banner {
         height: 180px;
@@ -93,6 +100,9 @@ body {
 }
 
 .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     padding: 20px;
     background-color: #fff;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
@@ -101,7 +111,49 @@ body {
 .logo {
     max-width: 250px;
     height: auto;
-    margin-left: 20px;
+    margin: 0;
+}
+
+.nav-menu {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+}
+
+.nav-menu li {
+    margin: 0 1rem;
+}
+
+.nav-menu a {
+    color: #333;
+    text-decoration: none;
+    font-size: 1.1rem;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.nav-menu a:hover {
+    background-color: #e9ecef;
+    border-radius: 5px;
+}
+
+.nav-menu a.active {
+    background-color: #007bff;
+    color: #fff;
+    border-radius: 5px;
+}
+
+@media (max-width: 768px) {
+    .nav-menu {
+        flex-direction: column;
+        align-items: center;
+    }
+    .nav-menu li {
+        margin: 0.5rem 0;
+    }
 }
 
 .container {
@@ -365,6 +417,57 @@ body {
 .right-ad { order: 3; }
 .form-wrapper { order: 2; }
 
+.use-cases {
+    width: 100%;
+    text-align: center;
+    margin: 40px 0;
+}
+
+.use-cases h2 {
+    color: #fff;
+    font-size: 2em;
+    margin-bottom: 20px;
+}
+
+.use-case-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.use-case-card {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    text-align: left;
+    transition: transform 0.3s ease;
+}
+
+.use-case-card:hover {
+    transform: translateY(-5px);
+}
+
+.use-case-card img {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.use-case-card h3 {
+    font-size: 1.5em;
+    margin: 0 0 10px;
+    color: #333;
+}
+
+.use-case-card p {
+    font-size: 1em;
+    color: #666;
+    margin: 0 0 15px;
+}
+
 @media (max-width: 768px) {
     .main-content {
         display: flex;
@@ -390,5 +493,8 @@ body {
     .action-btn {
         width: 100%;
         margin-bottom: 10px;
+    }
+    .use-case-grid {
+        grid-template-columns: 1fr;
     }
 }

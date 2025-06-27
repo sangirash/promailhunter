@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About Us - Meet the Team Behind Free Unlimited Email Finder | ProMailHunter</title>
+    <meta name="description" content="Meet the AI and cybersecurity experts behind ProMailHunter's free unlimited email finder. Learn why we're passionate about making email finding accessible to everyone.">
+    <meta name="keywords" content="email finder team, AI experts, cybersecurity professionals, free email finder creators, ProMailHunter team">
+    
+    <!-- Open Graph tags -->
+    <meta property="og:title" content="About ProMailHunter Team - AI & Cybersecurity Experts">
+    <meta property="og:description" content="Meet the passionate team making email finding free and unlimited for everyone.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://promailhunter.com/about-us">
+    
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "AboutPage",
+      "name": "About ProMailHunter Team",
+      "description": "Meet the AI and cybersecurity experts behind the free unlimited email finder",
+      "mainEntity": {
+        "@type": "Organization",
+        "@id": "https://promailhunter.com/#organization",
+        "name": "ProMailHunter",
+        "description": "Free unlimited email finder powered by AI",
+        "url": "https://promailhunter.com",
+        "foundingDate": "2024",
+        "memberOf": {
+          "@type": "ProfessionalService",
+          "name": "Email Finding Services"
+        }
+      }
+    }
+    </script>
+    
+    <link rel="stylesheet" href="/css/styles.css">
+    
+    <style>
+        /* Header layout fix for logo and nav alignment */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .logo {
+            max-width: 250px;
+            height: auto;
+            margin: 0;
+        }
+        
+        .nav-menu {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+        }
+        
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .logo {
+                margin-bottom: 20px;
+            }
+            
+            .nav-menu {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .nav-menu li {
+                margin: 0.5rem 0;
+            }
+        }
+        
+        /* About Us Page Specific Styles */
+        .about-banner {
+            background: linear-gradient(135deg, rgb(0, 53, 105) 0%, #1e3a5f 100%);
+            color: white;
+            text-align: center;
+            padding: 60px 20px;
+            margin-bottom: 40px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .about-banner::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('/images/PMH_Banner.png') no-repeat center;
+            background-size: cover;
+            opacity: 0.1;
+            z-index: 0;
+        }
+        
+        .about-banner-content {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .about-banner h1 {
+            font-size: 3.2em;
+            margin-bottom: 20px;
+            color: white;
+        }
+        
+        .about-banner .subtitle {
+            font-size: 1.4em;
+            opacity: 0.9;
+            margin-bottom: 25px;
+        }
+        
+        .fun-badge {
+            background: rgba(255, 255, 255, 0.855);
+            padding: 12px 25px;
+            border-radius: 30px;
+            display: inline-block;
+            font-weight: bold;
+            backdrop-filter: blur(10px);
+            font-size: 1.1em;
+        }
+        
+        .story-section {
+            background: #fff;
+            padding: 40px;
+            margin: 30px 0;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .story-section h2 {
+            color: rgb(0, 53, 105);
+            font-size: 2.5em;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        
+        .story-content {
+            font-size: 1.2em;
+            line-height: 1.8;
+            color: #444;
+            text-align: left;
+        }
+        
+        .story-content p {
+            margin-bottom: 20px;
+        }
+        
+        .highlight-text {
+            background: linear-gradient(135deg, rgb(0, 53, 105), #1e3a5f);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+        
+        .team-section {
+            background: #fff;
+            padding: 50px 40px;
+            margin: 40px 0;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 40px;
+            margin: 40px 0;
+        }
+        
+        .team-member {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 3px solid transparent;
+        }
+        
+        .team-member:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 30px rgba(0, 53, 105, 0.2);
+            border-color: rgb(0, 53, 105);
+        }
+        
+        .member-avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgb(0, 53, 105), #1e3a5f);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3em;
+            font-weight: bold;
+            margin: 0 auto 20px;
+            border: 4px solid white;
+            box-shadow: 0 8px 20px rgba(0, 53, 105, 0.3);
+        }
+        
+        .member-name {
+            font-size: 1.6em;
+            font-weight: bold;
+            color: rgb(0, 53, 105);
+            margin-bottom: 8px;
+        }
+        
+        .member-role {
+            font-size: 1.1em;
+            color: #666;
+            margin-bottom: 15px;
+            font-style: italic;
+        }
+        
+        .member-description {
+            font-size: 1em;
+            line-height: 1.6;
+            color: #555;
+            margin-bottom: 20px;
+        }
+        
+        .member-skills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+        
+        .skill-tag {
+            background: rgb(0, 53, 105);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+        
+        .values-section {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            padding: 50px 40px;
+            margin: 40px 0;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .values-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin: 40px 0;
+        }
+        
+        .value-card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 53, 105, 0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .value-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .value-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+        
+        .value-title {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: rgb(0, 53, 105);
+            margin-bottom: 15px;
+        }
+        
+        .value-description {
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        .fun-facts {
+            background: #fff;
+            padding: 40px;
+            margin: 40px 0;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .fun-facts h2 {
+            color: rgb(0, 53, 105);
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.2em;
+        }
+        
+        .facts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+            margin: 30px 0;
+        }
+        
+        .fact-box {
+            text-align: center;
+            padding: 25px;
+            background: linear-gradient(135deg, rgb(0, 53, 105), #1e3a5f);
+            color: white;
+            border-radius: 12px;
+            transition: transform 0.3s ease;
+        }
+        
+        .fact-box:hover {
+            transform: scale(1.05);
+        }
+        
+        .fact-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .fact-label {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .cta-section {
+            text-align: center;
+            background: rgb(0, 53, 105);
+            color: white;
+            padding: 60px 40px;
+            border-radius: 8px;
+            margin: 50px 0;
+        }
+        
+        .cta-section h2 {
+            color: white;
+            border: none;
+            margin-bottom: 25px;
+            font-size: 2.5em;
+        }
+        
+        .cta-button {
+            background: white;
+            color: rgb(0, 53, 105);
+            padding: 18px 35px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.3em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 25px;
+        }
+        
+        .cta-button:hover {
+            background-color: #e9ecef;
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .emoji {
+            font-size: 1.2em;
+            margin: 0 5px;
+        }
+        
+        @media (max-width: 768px) {
+            .about-banner h1 {
+                font-size: 2.2em;
+            }
+            
+            .story-section,
+            .team-section,
+            .values-section,
+            .fun-facts,
+            .cta-section {
+                padding: 25px 20px;
+                margin: 20px 0;
+            }
+            
+            .team-grid,
+            .values-grid,
+            .facts-grid {
+                grid-template-columns: 1fr;
+                gap: 25px;
+            }
+            
+            .story-content {
+                font-size: 1.1em;
+            }
+        }
+    </style>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9402325202956837" crossorigin="anonymous"></script>
+</head>
+<body>
+    <header class="header">
+        <img src="/images/PMH_logo1.png" alt="ProMailHunter - Free Email Finder" class="logo">
+        <nav>
+            <ul class="nav-menu">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="the-tool.html">The Tool</a></li>
+                <li><a href="how-it-works.html">How it Works</a></li>
+                <li><a href="about-us.html" class="active">About Us</a></li>
+            </ul>
+        </nav>
+    </header>
+    <img src="/images/PMH_Banner.png" alt="Custom Banner" class="custom-banner">
+    <div class="banner">
+        <div class="banner-content">
+            <h1>Hey There! <span class="emoji">👋</span> We're the ProMailHunter Team</h1>
+            <p class="subtitle">A bunch of tech nerds who got tired of paying for email searches</p>
+            <div class="fun-badge">🚀 Making Email Finding Free Since Day One!</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="story-section">
+            <h2>Our Story <span class="emoji">📖</span></h2>
+            <div class="story-content">
+                <p>Picture this: You're trying to reach out to someone important for your business, job hunt, or research project. You know their name, you know their company, but finding their email feels like searching for a needle in a haystack. Sound familiar?</p>
+                
+                <p>That's exactly the frustration our team faced daily. We're a group of <span class="highlight-text">AI specialists and cybersecurity experts</span> who were spending way too much money on email finder tools that had ridiculous limits. $50 here, $100 there – it was getting expensive, fast!</p>
+                
+                <p>One coffee-fueled evening, we looked at each other and said, <strong>"Why don't we just build our own?"</strong> But here's the kicker – we decided to make it <span class="highlight-text">completely free with unlimited searches</span>. Crazy? Maybe. Awesome? Definitely! <span class="emoji">😎</span></p>
+                
+                <p>We combined our expertise in artificial intelligence, machine learning, and cybersecurity to create something special. ProMailHunter isn't just another email finder – it's our rebellion against the "pay-per-search" industry standard.</p>
+                
+                <p>Today, thousands of sales professionals, job seekers, students, and entrepreneurs use our tool daily. And the best part? <strong>It's still completely free, and it always will be.</strong></p>
+            </div>
+        </section>
+
+        <section class="values-section">
+            <h2>What We Believe In <span class="emoji">💝</span></h2>
+            <p style="font-size: 1.2em; margin-bottom: 30px;">These aren't just fancy words on a wall – they're the principles that guide everything we do</p>
+            
+            <div class="values-grid">
+                <div class="value-card">
+                    <div class="value-icon">🆓</div>
+                    <div class="value-title">Free Should Mean Free</div>
+                    <div class="value-description">
+                        No hidden costs, no "freemium" tricks, no credit card required. When we say unlimited and free, we mean it. Forever.
+                    </div>
+                </div>
+
+                <div class="value-card">
+                    <div class="value-icon">🔒</div>
+                    <div class="value-title">Privacy First</div>
+                    <div class="value-description">
+                        We don't store your searches, sell your data, or track your activity. Your privacy is not our business model.
+                    </div>
+                </div>
+
+                <div class="value-card">
+                    <div class="value-icon">⚡</div>
+                    <div class="value-title">Keep It Simple</div>
+                    <div class="value-description">
+                        No 20-step registration process, no complex tutorials. Type a name and domain, get results. That's it.
+                    </div>
+                </div>
+
+                <div class="value-card">
+                    <div class="value-icon">🎯</div>
+                    <div class="value-title">Quality Over Quantity</div>
+                    <div class="value-description">
+                        We'd rather give you 3 highly accurate email addresses than 20 random guesses. Precision matters.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="fun-facts">
+            <h2>Some Fun Numbers <span class="emoji">🎲</span></h2>
+            <div class="facts-grid">
+                <div class="fact-box">
+                    <div class="fact-number">∞</div>
+                    <div class="fact-label">Free Searches (Yes, Really!)</div>
+                </div>
+                <div class="fact-box">
+                    <div class="fact-number">50K+</div>
+                    <div class="fact-label">Happy Users</div>
+                </div>
+                <div class="fact-box">
+                    <div class="fact-number">94%</div>
+                    <div class="fact-label">Accuracy Rate</div>
+                </div>
+                <div class="fact-box">
+                    <div class="fact-number">60s</div>
+                    <div class="fact-label">Average Search Time</div>
+                </div>
+                <div class="fact-box">
+                    <div class="fact-number">25</div>
+                    <div class="fact-label">Coffee Cups Per Day (Team Total)</div>
+                </div>
+                <div class="fact-box">
+                    <div class="fact-number">0</div>
+                    <div class="fact-label">Dollars You'll Ever Pay</div>
+                </div>
+            </div>
+        </section>
+
+        <div class="cta-section">
+            <h2>Ready to Find Some Emails? <span class="emoji">🚀</span></h2>
+            <p style="font-size: 1.3em; margin-bottom: 20px;">
+                Enough about us – let's talk about how we can help you connect with the people who matter to your success!
+            </p>
+            <a href="the-tool.html" class="cta-button">Try Our Free Email Finder Now</a>
+            <p style="font-size: 1em; margin-top: 20px; opacity: 0.8;">
+                No registration, no limits, no kidding! <span class="emoji">😊</span>
+            </p>
+        </div>
+    </div>
+</body>
+</html>

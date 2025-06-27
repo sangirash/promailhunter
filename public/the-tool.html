@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Free Unlimited Email Finder | Find Corporate Emails - ProMailHunter">
+    <title>Free Unlimited Email Finder | Find Corporate Emails - ProMailHunter</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        .email-results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .email-results-table th {
+            background: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #dee2e6;
+        }
+        
+        .email-results-table td {
+            padding: 12px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .email-results-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .email-results-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .probability-cell {
+            font-weight: 600;
+            text-align: center;
+        }
+        
+        .probability-high {
+            color: #28a745;
+        }
+        
+        .probability-medium {
+            color: #ffc107;
+        }
+        
+        .probability-low {
+            color: #dc3545;
+        }
+        
+        .email-cell {
+            font-family: monospace;
+            font-size: 14px;
+        }
+        
+        .copy-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+        
+        .copy-btn:hover {
+            background: #0056b3;
+        }
+        
+        .verification-progress {
+            text-align: center;
+            padding: 40px 20px;
+        }
+        
+        .progress-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .no-results-message {
+            text-align: center;
+            padding: 30px;
+            color: #6c757d;
+            font-style: italic;
+        }
+    </style>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9402325202956837" crossorigin="anonymous"></script>
+</head>
+<body>
+    <header class="header">
+        <img class="logo" src="/images/PMH_logo1.png" alt="ProMailHunter Logo">
+        <nav>
+            <ul class="nav-menu">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="the-tool.html" class="active">The Tool</a></li>
+                <li><a href="how-it-works.html">How It Works</a></li>
+                <li><a href="about-us.html">About Us</a></li>
+            </ul>
+        </nav>
+    </header>
+    <img src="/images/PMH_Banner.png" alt="Custom Banner" class="custom-banner">
+    
+    <div class="container">
+        <div class="ad-placeholder" id="ad-top">Ad Placeholder (Top)</div>
+
+        <div class="main-content">
+            <!-- div class="ad-sidebar left-ad">Ad Placeholder (Left)</div -->
+            <div class="form-wrapper">
+                <form id="contactForm" class="centered-form">
+                    <div class="mandatory-note">
+                        <p><strong>⚠️ All fields (First Name, Last Name, Company Domain) are required</strong></p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="firstName">First Name *</label>
+                        <input type="text" id="firstName" name="firstName" maxlength="50" required>
+                        <span id="firstName-error" class="error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="lastName">Last Name *</label>
+                        <input type="text" id="lastName" name="lastName" maxlength="50" required>
+                        <span id="lastName-error" class="error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="companyName">Company Domain *</label>
+                        <input type="text" id="companyName" name="companyName" maxlength="100" required>
+                        <div id="domainValidator" class="domain-validator">
+                            <span id="validationIcon" class="validation-icon"></span>
+                            <span id="validationMessage" class="validation-message"></span>
+                        </div>
+                        <span id="companyName-error" class="error"></span>
+                        <span id="domainRestrictionNote" class="domain-restriction-note"></span>
+                        
+                        <div class="domain-help">
+                            <p>📝 Enter the company's email domain:</p>
+                            <ul>
+                                <li>company.com - Just the domain</li>
+                                <li>[email protected] - Any email from that domain</li>
+                                <li>https://company.com - Company website URL</li>
+                                <li>www.company.com - Website with www</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button type="button" id="verifyBtn" class="action-btn verify-btn" disabled>
+                            <span class="btn-text">🔍 Find Email</span>
+                            <span class="spinner"></span>
+                        </button>
+                    </div>
+
+                    <div class="form-tip">
+                        <p>💡 Tip: We'll find the most likely email addresses for this person at the company.</p>
+                    </div>
+                </form>
+            </div>
+            <!-- div class="ad-sidebar right-ad">Ad Placeholder (Right)</div -->
+        </div>
+
+        <div id="result" class="result-container" style="display: none;">
+            <h2>Most Probable Email Addresses</h2>
+            <div id="resultContent"></div>
+        </div>
+
+        <div class="info-section">
+            <h2>🎯 How It Works</h2>
+            <ul>
+                <li><strong>Domain Validation:</strong> Real-time verification</li>
+                <li><strong>Smart Analysis:</strong> AI-powered probability calculation</li>
+                <li><strong>Top Results:</strong> Shows the 3 most likely email addresses</li>
+                <li><strong>Deep Verification:</strong> Checks mailboxes via SMTP when possible</li>
+                <li><strong>Corporate Focus:</strong> Optimized for enterprise domains</li>
+            </ul>
+
+            <h2>📊 Probability Scoring</h2>
+            <div class="verification-comparison">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Score Range</th>
+                            <th>Meaning</th>
+                            <th>Confidence Level</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>70-100%</td>
+                            <td>Very High</td>
+                            <td>Email very likely exists</td>
+                        </tr>
+                        <tr>
+                            <td>50-69%</td>
+                            <td>Moderate</td>
+                            <td>Good chance email exists</td>
+                        </tr>
+                        <tr>
+                            <td>30-49%</td>
+                            <td>Low</td>
+                            <td>Email might exist</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>
