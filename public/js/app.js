@@ -1,3 +1,4 @@
+// public/js/app.js - Complete integrated version with all features
 class ProMailHunterApp {
     constructor() {
         this.form = document.getElementById('contactForm');
@@ -11,6 +12,9 @@ class ProMailHunterApp {
 
         this.domainValidationTimer = null;
         this.lastValidatedDomain = null;
+        this.queueCheckInterval = null;
+        this.currentRequestId = null;
+        this.poolStatusInterval = null;
 
         this.genericDomains = [
             'gmail.com', 'outlook.com', 'hotmail.com', 'yahoo.com', 'aol.com',
@@ -18,6 +22,8 @@ class ProMailHunterApp {
         ];
 
         this.init();
+        this.addCapacityStyles();
+        this.checkPoolStatus();
     }
 
     init() {
@@ -33,6 +39,320 @@ class ProMailHunterApp {
         inputs.forEach(input => {
             input.addEventListener('input', () => this.updateButtonStates());
         });
+
+        // Check pool status periodically
+        this.poolStatusInterval = setInterval(() => this.checkPoolStatus(), 5000);
+    }
+
+    addCapacityStyles() {
+        if (!document.getElementById('capacityWarningStyles')) {
+            const style = document.createElement('style');
+            style.id = 'capacityWarningStyles';
+            style.textContent = `
+                .capacity-warning {
+                    background: #fff3cd;
+                    border: 2px solid #ffc107;
+                    border-radius: 8px;
+                    padding: 20px;
+                    margin-bottom: 20px;
+                    text-align: center;
+                    animation: slideDown 0.3s ease-out;
+                }
+                
+                @keyframes slideDown {
+                    from {
+                        opacity: 0;
+                        transform: translateY(-20px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+                
+                .capacity-warning .warning-icon {
+                    font-size: 48px;
+                    margin-bottom: 10px;
+                }
+                
+                .capacity-warning h3 {
+                    color: #856404;
+                    margin: 10px 0;
+                }
+                
+                .capacity-warning p {
+                    color: #856404;
+                    margin: 10px 0;
+                }
+                
+                .queue-info {
+                    display: flex;
+                    justify-content: center;
+                    gap: 15px;
+                    margin: 15px 0;
+                    font-size: 14px;
+                    color: #856404;
+                }
+                
+                .retry-timer {
+                    margin-top: 15px;
+                    font-weight: bold;
+                    color: #856404;
+                }
+                
+                .form-wrapper.disabled {
+                    opacity: 0.5;
+                    pointer-events: none;
+                }
+                
+                .queue-status {
+                    background: #d1ecf1;
+                    border: 1px solid #bee5eb;
+                    border-radius: 8px;
+                    padding: 15px;
+                    margin-bottom: 20px;
+                    text-align: center;
+                }
+                
+                .queue-status h4 {
+                    color: #0c5460;
+                    margin: 0 0 10px 0;
+                }
+                
+                .queue-progress {
+                    background: #e9ecef;
+                    border-radius: 10px;
+                    height: 20px;
+                    margin: 10px 0;
+                    overflow: hidden;
+                }
+                
+                .queue-progress-bar {
+                    background: #007bff;
+                    height: 100%;
+                    width: 0%;
+                    transition: width 0.3s ease;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    font-size: 12px;
+                    font-weight: bold;
+                }
+                
+                .verification-progress {
+                    text-align: center;
+                    padding: 40px 20px;
+                }
+                
+                .progress-spinner {
+                    display: inline-block;
+                    width: 40px;
+                    height: 40px;
+                    border: 4px solid #f3f3f3;
+                    border-top: 4px solid #007bff;
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                    margin-bottom: 20px;
+                }
+                
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+                
+                .email-results-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 20px;
+                    background: #fff;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }
+                
+                .email-results-table th {
+                    background: #f8f9fa;
+                    padding: 12px;
+                    text-align: left;
+                    font-weight: 600;
+                    border-bottom: 2px solid #dee2e6;
+                }
+                
+                .email-results-table td {
+                    padding: 12px;
+                    border-bottom: 1px solid #dee2e6;
+                }
+                
+                .email-results-table tr:last-child td {
+                    border-bottom: none;
+                }
+                
+                .email-results-table tr:hover {
+                    background: #f8f9fa;
+                }
+                
+                .probability-cell {
+                    font-weight: 600;
+                    text-align: center;
+                }
+                
+                .probability-high {
+                    color: #28a745;
+                }
+                
+                .probability-medium {
+                    color: #ffc107;
+                }
+                
+                .probability-low {
+                    color: #dc3545;
+                }
+                
+                .email-cell {
+                    font-family: monospace;
+                    font-size: 14px;
+                }
+                
+                .copy-btn {
+                    background: #007bff;
+                    color: white;
+                    border: none;
+                    padding: 4px 12px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 12px;
+                    transition: background 0.2s;
+                }
+                
+                .copy-btn:hover {
+                    background: #0056b3;
+                }
+                
+                .no-results-message {
+                    text-align: center;
+                    padding: 30px;
+                    color: #6c757d;
+                    font-style: italic;
+                }
+                
+                .action-btn.loading .spinner {
+                    display: inline-block;
+                    width: 12px;
+                    height: 12px;
+                    border: 2px solid rgba(255, 255, 255, 0.3);
+                    border-top: 2px solid white;
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                    margin-left: 5px;
+                    vertical-align: middle;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }
+
+    async checkPoolStatus() {
+        try {
+            const response = await fetch('/api/pool-status');
+            const data = await response.json();
+            
+            if (data.pool.isFull) {
+                this.showCapacityWarning(data.pool);
+            } else {
+                this.hideCapacityWarning();
+            }
+        } catch (error) {
+            console.error('Failed to check pool status:', error);
+        }
+    }
+
+    showCapacityWarning(poolStatus) {
+        // Disable form
+        this.form.classList.add('disabled');
+        const inputs = this.form.querySelectorAll('input, button');
+        inputs.forEach(input => input.disabled = true);
+
+        // Show warning message
+        let warningDiv = document.getElementById('capacityWarning');
+        if (!warningDiv) {
+            warningDiv = document.createElement('div');
+            warningDiv.id = 'capacityWarning';
+            warningDiv.className = 'capacity-warning';
+            this.form.parentNode.insertBefore(warningDiv, this.form);
+        }
+
+        warningDiv.innerHTML = `
+            <div class="warning-icon">⚠️</div>
+            <h3>Server at Full Capacity</h3>
+            <p>We are experiencing heavy load with <strong>${poolStatus.activeUsers}</strong> users running queries simultaneously.</p>
+            <p>Please wait for approximately <strong>60 seconds</strong> before trying again.</p>
+            <div class="queue-info">
+                <span>Queue length: ${poolStatus.queueLength}</span>
+                <span>•</span>
+                <span>Active connections: ${poolStatus.totalActiveConnections}</span>
+            </div>
+            <div class="retry-timer" id="retryTimer">Checking availability...</div>
+        `;
+    }
+
+    hideCapacityWarning() {
+        const warningDiv = document.getElementById('capacityWarning');
+        if (warningDiv) {
+            warningDiv.remove();
+        }
+        
+        this.form.classList.remove('disabled');
+        this.updateButtonStates();
+    }
+
+    showQueueStatus(queueInfo) {
+        this.resultContainer.style.display = 'block';
+        this.resultContent.innerHTML = `
+            <div class="queue-status">
+                <h4>🕐 You're in Queue</h4>
+                <p>Position: <strong>#${queueInfo.position}</strong> of ${queueInfo.totalInQueue}</p>
+                <p>Estimated wait: <strong>${queueInfo.estimatedWait} seconds</strong></p>
+                <div class="queue-progress">
+                    <div class="queue-progress-bar" style="width: ${((queueInfo.totalInQueue - queueInfo.position + 1) / queueInfo.totalInQueue * 100)}%">
+                        ${Math.round((queueInfo.totalInQueue - queueInfo.position + 1) / queueInfo.totalInQueue * 100)}%
+                    </div>
+                </div>
+                <p class="queue-message">${queueInfo.message}</p>
+                <p><small>We'll process your request as soon as possible</small></p>
+            </div>
+        `;
+
+        // Start checking queue position
+        if (this.currentRequestId) {
+            this.startQueuePositionCheck();
+        }
+    }
+
+    startQueuePositionCheck() {
+        if (this.queueCheckInterval) {
+            clearInterval(this.queueCheckInterval);
+        }
+
+        this.queueCheckInterval = setInterval(async () => {
+            try {
+                const response = await fetch(`/api/queue-status/${this.currentRequestId}`);
+                const data = await response.json();
+
+                if (!data.inQueue) {
+                    clearInterval(this.queueCheckInterval);
+                    console.log('Request no longer in queue, should be processing...');
+                } else {
+                    // Update queue position display
+                    const progressBar = document.querySelector('.queue-progress-bar');
+                    if (progressBar) {
+                        const percentage = ((data.totalInQueue - data.position + 1) / data.totalInQueue * 100);
+                        progressBar.style.width = `${percentage}%`;
+                        progressBar.textContent = `${Math.round(percentage)}%`;
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to check queue status:', error);
+            }
+        }, 2000); // Check every 2 seconds
     }
 
     updateButtonStates() {
@@ -46,7 +366,10 @@ class ProMailHunterApp {
         
         const allFieldsValid = firstName && lastName && companyName && isValidDomainFormat && isCorporateDomain;
         
-        this.verifyBtn.disabled = !allFieldsValid;
+        // Check if form is disabled due to capacity
+        const formDisabled = this.form.classList.contains('disabled');
+        
+        this.verifyBtn.disabled = !allFieldsValid || formDisabled;
 
         if (companyName && !isValidDomainFormat) {
             this.showDomainRestrictionNote('Please add a valid domain variation such as .com, .org, or .co');
@@ -197,6 +520,9 @@ class ProMailHunterApp {
         this.setButtonLoading(this.verifyBtn, true);
         this.showVerificationProgress();
         
+        // Generate request ID for tracking
+        this.currentRequestId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        
         try {
             const formData = new FormData(this.form);
             const data = Object.fromEntries(formData.entries());
@@ -216,14 +542,34 @@ class ProMailHunterApp {
                 body: JSON.stringify(requestBody)
             });
             
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
             const result = await response.json();
             
+            if (response.status === 503) {
+                // Server at capacity
+                this.showCapacityWarning(result.queueStatus);
+                this.setButtonLoading(this.verifyBtn, false);
+                return;
+            }
+            
+            if (response.status === 202 && result.queued) {
+                // In queue
+                this.showQueueStatus(result.queueStatus);
+                this.setButtonLoading(this.verifyBtn, false);
+                
+                // Wait for processing
+                setTimeout(() => {
+                    this.retryVerification(requestBody);
+                }, result.queueStatus.estimatedWait * 1000);
+                return;
+            }
+            
             if (result.success) {
-                // Process the results and show top 3 emails with probabilities
+                // Clear any queue check interval
+                if (this.queueCheckInterval) {
+                    clearInterval(this.queueCheckInterval);
+                }
+                
+                // Process and display results
                 this.processAndDisplayResults(result, data);
             } else {
                 this.showErrorMessage(result.error || 'Verification failed');
@@ -233,6 +579,28 @@ class ProMailHunterApp {
             this.showErrorMessage('An error occurred during verification. Please try again.');
         } finally {
             this.setButtonLoading(this.verifyBtn, false);
+        }
+    }
+
+    async retryVerification(requestBody) {
+        console.log('Retrying verification after queue wait...');
+        
+        try {
+            const response = await fetch('/api/generate-and-verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.processAndDisplayResults(result, requestBody);
+            } else {
+                this.showErrorMessage(result.error || 'Verification failed after queue');
+            }
+        } catch (error) {
+            this.showErrorMessage('Failed to complete verification. Please try again.');
         }
     }
 
@@ -263,17 +631,23 @@ class ProMailHunterApp {
         // Case 3: 1-3 valid emails
         else if (validEmails.length >= 1 && validEmails.length <= 3) {
             // Calculate probability based on pattern matching
-            emailsWithProbability = validEmails.map(email => {
-                const prob = this.calculateEmailProbability(email, validEmails.length);
-                return { email, probability: prob };
+            emailsWithProbability = validEmails.map(item => {
+                if (typeof item === 'string') {
+                    const prob = this.calculateEmailProbability(item, validEmails.length);
+                    return { email: item, probability: prob };
+                }
+                return item;
             });
         }
         // Case 4: 4-10 valid emails
         else {
             // Calculate probabilities for all valid emails
-            const allEmailsWithProb = validEmails.map(email => {
-                const prob = this.calculateEmailProbability(email, validEmails.length);
-                return { email, probability: prob };
+            const allEmailsWithProb = validEmails.map(item => {
+                if (typeof item === 'string') {
+                    const prob = this.calculateEmailProbability(item, validEmails.length);
+                    return { email: item, probability: prob };
+                }
+                return item;
             });
             
             // Sort by probability (descending)
@@ -403,6 +777,19 @@ class ProMailHunterApp {
         div.textContent = text;
         return div.innerHTML;
     }
+
+    // Cleanup intervals on page unload
+    cleanup() {
+        if (this.poolStatusInterval) {
+            clearInterval(this.poolStatusInterval);
+        }
+        if (this.queueCheckInterval) {
+            clearInterval(this.queueCheckInterval);
+        }
+        if (this.domainValidationTimer) {
+            clearTimeout(this.domainValidationTimer);
+        }
+    }
 }
 
 // Global functions for copy functionality
@@ -479,15 +866,29 @@ function showCopyError(message) {
     }, 3000);
 }
 
-// Add fade out animation
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes fadeOut {
-        0% { opacity: 1; }
-        70% { opacity: 1; }
-        100% { opacity: 0; }
-    }
-`;
-document.head.appendChild(style);
+// Add fade out animation if not already present
+if (!document.getElementById('fadeOutAnimation')) {
+    const style = document.createElement('style');
+    style.id = 'fadeOutAnimation';
+    style.textContent = `
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            70% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+    `;
+    document.head.appendChild(style);
+}
 
-document.addEventListener('DOMContentLoaded', () => new ProMailHunterApp());
+// Initialize app when DOM is ready
+let app;
+document.addEventListener('DOMContentLoaded', () => {
+    app = new ProMailHunterApp();
+});
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    if (app) {
+        app.cleanup();
+    }
+});
