@@ -41,7 +41,7 @@ class ProMailHunterApp {
         });
 
         // Check pool status periodically
-        this.poolStatusInterval = setInterval(() => this.checkPoolStatus(), 5000);
+        this.poolStatusInterval = setInterval(() => this.checkPoolStatus(), 60000);
     }
 
     addCapacityStyles() {
