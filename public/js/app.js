@@ -12,6 +12,7 @@ class ProMailHunterApp {
 
         this.domainValidationTimer = null;
         this.lastValidatedDomain = null;
+        this.lastDomainValidation = null;
         this.queueCheckInterval = null;
         this.currentRequestId = null;
         this.poolStatusInterval = null;
@@ -364,7 +365,17 @@ class ProMailHunterApp {
         const isValidDomainFormat = this.isValidDomainFormat(companyName);
         const isCorporateDomain = domain && !this.isGenericDomain(domain);
         
-        const allFieldsValid = firstName && lastName && companyName && isValidDomainFormat && isCorporateDomain;
+        // Check if domain has been validated and can receive emails
+        const isDomainValidated = this.lastDomainValidation && 
+                                 this.lastDomainValidation.domain === domain && 
+                                 this.lastDomainValidation.canReceiveEmail;
+        
+        const allFieldsValid = firstName && 
+                              lastName && 
+                              companyName && 
+                              isValidDomainFormat && 
+                              isCorporateDomain &&
+                              isDomainValidated; // New requirement: domain must be validated and can receive emails
         
         // Check if form is disabled due to capacity
         const formDisabled = this.form.classList.contains('disabled');
@@ -375,6 +386,8 @@ class ProMailHunterApp {
             this.showDomainRestrictionNote('Please add a valid domain variation such as .com, .org, or .co');
         } else if (companyName && isValidDomainFormat && !isCorporateDomain) {
             this.showDomainRestrictionNote('This search is specifically for corporate domains only, kindly enter a corporate domain');
+        } else if (companyName && isValidDomainFormat && isCorporateDomain && !isDomainValidated) {
+            this.showDomainRestrictionNote('Validating domain... Please wait for domain to be validated');
         } else {
             this.clearDomainRestrictionNote();
         }
@@ -449,13 +462,29 @@ class ProMailHunterApp {
             });
             const result = await response.json();
             const message = result.message + (result.isPublicProvider ? ' (Public email provider)' : result.isCorporateDomain ? ' (Corporate domain)' : '');
+            
+            // Store the domain validation result
+            this.lastDomainValidation = {
+                domain: domain,
+                valid: result.valid,
+                canReceiveEmail: result.valid && result.mxRecords && result.mxRecords.length > 0
+            };
+            
             this.showDomainValidation(result.valid ? 'valid' : 'invalid', result.valid ? '✅' : '❌', message);
             this.lastValidatedDomain = result.valid ? domain : null;
+            
+            // Update button state after domain validation
+            this.updateButtonStates();
         } catch (error) {
             console.error('Domain validation error:', error);
+            this.lastDomainValidation = {
+                domain: domain,
+                valid: false,
+                canReceiveEmail: false
+            };
             this.showDomainValidation('error', '⚠️', 'Unable to validate domain');
+            this.updateButtonStates();
         }
-        this.updateButtonStates();
     }
 
     showDomainValidation(status, icon, message) {
@@ -463,6 +492,13 @@ class ProMailHunterApp {
         this.validationIcon.textContent = icon;
         this.validationMessage.textContent = message;
         this.domainValidator.className = `domain-validator show ${status}`;
+        
+        // If domain is invalid, show appropriate message
+        if (status === 'invalid') {
+            if (message.includes('has no email servers') || message.includes('does not exist')) {
+                this.showDomainRestrictionNote('This domain cannot receive emails. Please enter a valid corporate domain.');
+            }
+        }
     }
 
     validateField(input) {
