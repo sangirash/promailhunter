@@ -147,7 +147,7 @@ class EmailGenerator {
         if (lName.length >= 2) {
             usernames.add(`${fInitial}.${lName}`); // j.doe
             usernames.add(`${fInitial}_${lName}`); // j_doe
-            usernames.add(`${fInitial}-${lName}`); // j-doe
+           // usernames.add(`${fInitial}-${lName}`); // j-doe
             usernames.add(`${fInitial}${lName}`); // jdoe
         }
 
@@ -155,15 +155,15 @@ class EmailGenerator {
         if (fName.length >= 2) {
             usernames.add(`${fName}.${lInitial}`); // john.d
             usernames.add(`${fName}_${lInitial}`); // john_d
-            usernames.add(`${fName}-${lInitial}`); // john-d
+         //   usernames.add(`${fName}-${lInitial}`); // john-d
             usernames.add(`${fName}${lInitial}`); // johnd
         }
-
+/*
         // Double initials (only if both names are reasonable length)
         if (fInitial && lInitial && fName.length >= 2 && lName.length >= 2) {
             usernames.add(`${fInitial}${lInitial}`); // jd
         }
-
+*/
         // Reversed combinations (minimum 2 characters)
         if (fName.length >= 2 && lName.length >= 2) {
             usernames.add(`${lName}.${fName}`); // doe.john
@@ -175,7 +175,7 @@ class EmailGenerator {
         if (lName.length >= 2) {
             usernames.add(`${lName}.${fInitial}`); // doe.j
             usernames.add(`${lName}_${fInitial}`); // doe_j
-            usernames.add(`${lName}-${fInitial}`); // doe-j
+         //   usernames.add(`${lName}-${fInitial}`); // doe-j
             usernames.add(`${lName}${fInitial}`); // doej
         }
 
@@ -183,10 +183,11 @@ class EmailGenerator {
         if (fName.length >= 2) {
             usernames.add(fName); // john
         }
+        
         if (lName.length >= 2) {
             usernames.add(lName); // doe
         }
-
+            
         // === COMMON BUSINESS NAME PATTERNS ===
 
         // Firstname + last initial (common in business)
@@ -206,7 +207,8 @@ class EmailGenerator {
 
         // === NUMBER SUFFIXES (ONLY) ===
         // Common numbers added as SUFFIX (never prefix) to existing name patterns
-        const commonNumbers = ['1', '01', '2', '123'];
+        //const commonNumbers = ['1', '01', '2', '123'];
+        const commonNumbers = ['1'];
         const basePatterns = [];
 
         // Collect the best base patterns for number suffixes
@@ -263,7 +265,8 @@ class EmailGenerator {
 
         // Log some examples for verification
         if (validUsernames.length > 0) {
-            console.log(`📧 Sample patterns: ${validUsernames.slice(0, 5).join(', ')}${validUsernames.length > 5 ? '...' : ''}`);
+            //console.log(`📧 Sample patterns: ${validUsernames.slice(0, 5).join(', ')}${validUsernames.length > 5 ? '...' : ''}`);
+            console.log(`📧 Sample patterns: ${validUsernames}`);
         }
 
         return validUsernames;

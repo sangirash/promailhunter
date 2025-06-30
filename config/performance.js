@@ -5,7 +5,8 @@ const os = require('os');
 module.exports = {
     // Connection pool settings
     connectionPool: {
-        maxConcurrentUsers: process.env.MAX_CONCURRENT_USERS || 20,
+       // maxConcurrentUsers: process.env.MAX_CONCURRENT_USERS || 20,
+        maxConcurrentUsers: process.env.MAX_CONCURRENT_USERS || 15,
         maxConnectionsPerUser: process.env.MAX_CONNECTIONS_PER_USER || 5,
         queueTimeout: process.env.QUEUE_TIMEOUT || 60000, // 60 seconds
         cleanupInterval: 5000, // 5 seconds
@@ -15,7 +16,8 @@ module.exports = {
     // Parallel processing settings
     parallelProcessing: {
         // Use up to 80% of available CPUs for worker threads
-        maxWorkers: process.env.MAX_WORKERS || Math.min(Math.floor(os.cpus().length * 0.8), 8),
+        //maxWorkers: process.env.MAX_WORKERS || Math.min(Math.floor(os.cpus().length * 0.8), 8),
+        maxWorkers: process.env.MAX_WORKERS || 2,
         taskTimeout: process.env.TASK_TIMEOUT || 30000, // 30 seconds per task
         maxRetries: 2,
         batchSize: process.env.BATCH_SIZE || 20 // Emails per batch

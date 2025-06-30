@@ -9,7 +9,8 @@ class ParallelSmtpVerifier extends EventEmitter {
         super();
         
         // Configuration
-        this.maxWorkers = options.maxWorkers || Math.min(os.cpus().length, 8);
+        //this.maxWorkers = options.maxWorkers || Math.min(os.cpus().length, 8);
+        this.maxWorkers = options.maxWorkers || 2;
         this.taskTimeout = options.taskTimeout || 30000;
         this.maxRetries = options.maxRetries || 1;
         
@@ -194,7 +195,7 @@ class ParallelSmtpVerifier extends EventEmitter {
                     return new Promise((resolve) => {
                         const timeout = setTimeout(() => {
                             resolve({ valid: null, mailboxExists: null, error: 'SMTP timeout' });
-                        }, 10000); // 10 second timeout per email
+                        }, 15000); // 10 second timeout per email
                         
                         const client = new net.Socket();
                         let step = 0;
@@ -371,7 +372,8 @@ class ParallelSmtpVerifier extends EventEmitter {
      */
     async verifyEmails(emails, options = {}) {
         const {
-            batchSize = Math.ceil(emails.length / this.maxWorkers),
+            //batchSize = Math.ceil(emails.length / this.maxWorkers),
+            batchSize = Math.min(5, Math.ceil(emails.length / (this.maxWorkers * 4))),
             progressCallback = null,
             connectionId = null,
             ...verificationOptions
@@ -711,8 +713,9 @@ class ParallelSmtpVerifier extends EventEmitter {
 
 // Create singleton instance
 const parallelSmtpVerifier = new ParallelSmtpVerifier({
-    maxWorkers: Math.min(os.cpus().length, 8),
-    taskTimeout: 60000 // 60 seconds per batch
+    //maxWorkers: Math.min(os.cpus().length, 8),
+    maxWorkers: 2,
+    taskTimeout: 120000 // 60 seconds per batch
 });
 
 module.exports = parallelSmtpVerifier;
