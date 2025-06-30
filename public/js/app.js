@@ -553,6 +553,10 @@ class ProMailHunterApp {
         e.preventDefault();
         if (!this.validateForm()) return;
         
+        // Set a 5-minute timeout for verification
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minutes
+
         this.setButtonLoading(this.verifyBtn, true);
         this.showVerificationProgress();
         
@@ -560,6 +564,7 @@ class ProMailHunterApp {
         this.currentRequestId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         
         try {
+            
             const formData = new FormData(this.form);
             const data = Object.fromEntries(formData.entries());
             const requestBody = {
@@ -575,9 +580,11 @@ class ProMailHunterApp {
             const response = await fetch('/api/generate-and-verify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody)
+                body: JSON.stringify(requestBody),
+                signal: controller.signal
             });
             
+            clearTimeout(timeoutId);
             const result = await response.json();
             
             if (response.status === 503) {
@@ -611,8 +618,13 @@ class ProMailHunterApp {
                 this.showErrorMessage(result.error || 'Verification failed');
             }
         } catch (error) {
-            console.error('Email verification error:', error);
-            this.showErrorMessage('An error occurred during verification. Please try again.');
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                this.showErrorMessage('Verification is taking longer than expected. Please try refreshing the page.');
+            } else {
+                console.error('Email verification error:', error);
+                this.showErrorMessage('An error occurred during verification. Please try again.');
+            }
         } finally {
             this.setButtonLoading(this.verifyBtn, false);
         }
