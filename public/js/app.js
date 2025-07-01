@@ -761,7 +761,7 @@ class ProMailHunterApp {
                                 <td class="email-cell">${this.escapeHtml(item.email)}</td>
                                 <td class="probability-cell ${probClass}">${item.probability}%</td>
                                 <td>
-                                    <button class="copy-btn" onclick="copyToClipboard('${item.email}', 'Copied!')">
+                                    <button class="copy-btn" data-email="${this.escapeHtml(item.email)}">
                                         Copy
                                     </button>
                                 </td>
@@ -771,13 +771,40 @@ class ProMailHunterApp {
                 </tbody>
             </table>
             <div style="margin-top: 20px; text-align: center;">
-                <button class="action-btn" onclick="location.reload()" style="padding: 8px 20px;">
+                <button class="action-btn new-search-btn" style="padding: 8px 20px;">
                     🔄 New Search
                 </button>
             </div>
         `;
         
         this.resultContent.innerHTML = tableHTML;
+
+        // Add event listeners to copy buttons
+        const copyButtons = this.resultContent.querySelectorAll('.copy-btn');
+        copyButtons.forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const email = e.target.getAttribute('data-email');
+                const success = await window.copyToClipboard(email, 'Copied!');
+                
+                // Temporarily change button text to show feedback
+                const originalText = e.target.textContent;
+                e.target.textContent = success ? '✓ Copied' : 'Failed';
+                e.target.style.backgroundColor = success ? '#28a745' : '#dc3545';
+                
+                setTimeout(() => {
+                    e.target.textContent = originalText;
+                    e.target.style.backgroundColor = '';
+                }, 2000);
+            });
+        });
+
+        // Add event listener for new search button
+        const newSearchBtn = this.resultContent.querySelector('.new-search-btn');
+        if (newSearchBtn) {
+            newSearchBtn.addEventListener('click', () => {
+                location.reload();
+            });
+        }
     }
 
     showVerificationProgress() {
@@ -812,11 +839,19 @@ class ProMailHunterApp {
         this.resultContent.innerHTML = `
             <div class="no-results-message">
                 <p>❌ ${this.escapeHtml(message)}</p>
-                <button class="action-btn" onclick="location.reload()" style="margin-top: 20px; padding: 8px 20px;">
+                <button class="action-btn try-again-btn" style="margin-top: 20px; padding: 8px 20px;">
                     🔄 Try Again
                 </button>
             </div>
         `;
+
+        // Add event listener for try again button
+        const tryAgainBtn = this.resultContent.querySelector('.try-again-btn');
+        if (tryAgainBtn) {
+            tryAgainBtn.addEventListener('click', () => {
+                location.reload();
+            });
+        }
     }
 
     escapeHtml(text) {
