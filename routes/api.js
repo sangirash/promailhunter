@@ -391,8 +391,8 @@ router.post('/generate-and-verify',
                     allGeneratedEmails, {
                         enableSMTP: verificationOptions.enableSMTP !== false,
                         deepVerification: verificationOptions.deepVerification !== false,
-                        //batchSize: Math.min(10, Math.ceil(allGeneratedEmails.length / parallelSmtpVerifier.maxWorkers)),
-						batchSize: 5,
+                        batchSize: Math.min(10, Math.ceil(allGeneratedEmails.length / parallelSmtpVerifier.maxWorkers)),
+						//batchSize: 5,
                         progressCallback,
                         connectionId
                     }

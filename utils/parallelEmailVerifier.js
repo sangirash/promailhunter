@@ -9,8 +9,8 @@ class ParallelEmailVerifier extends EventEmitter {
         super();
         
         // Configuration
-        //this.maxWorkers = options.maxWorkers || Math.min(os.cpus().length, 8);
-        this.maxWorkers = options.maxWorkers || 2;
+        this.maxWorkers = options.maxWorkers || Math.min(os.cpus().length, 10);
+        //this.maxWorkers = options.maxWorkers || 2;
         this.taskTimeout = options.taskTimeout || 30000; // 30 seconds per task
         this.maxRetries = options.maxRetries || 2;
         
@@ -601,8 +601,8 @@ class ParallelEmailVerifier extends EventEmitter {
 
 // Create singleton instance
 const parallelVerifier = new ParallelEmailVerifier({
-    //maxWorkers: Math.min(os.cpus().length, 8),
-    maxWorkers: 2,
+    maxWorkers: Math.min(os.cpus().length, 10),
+    //maxWorkers: 2,
     taskTimeout: 30000
 });
 

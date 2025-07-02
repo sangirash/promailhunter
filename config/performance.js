@@ -16,8 +16,8 @@ module.exports = {
     // Parallel processing settings
     parallelProcessing: {
         // Use up to 80% of available CPUs for worker threads
-        //maxWorkers: process.env.MAX_WORKERS || Math.min(Math.floor(os.cpus().length * 0.8), 8),
-        maxWorkers: process.env.MAX_WORKERS || 2,
+        maxWorkers: process.env.MAX_WORKERS || Math.min(Math.floor(os.cpus().length * 0.8), 10),
+        //maxWorkers: process.env.MAX_WORKERS || 2,
         taskTimeout: process.env.TASK_TIMEOUT || 30000, // 30 seconds per task
         maxRetries: 2,
         batchSize: process.env.BATCH_SIZE || 20 // Emails per batch

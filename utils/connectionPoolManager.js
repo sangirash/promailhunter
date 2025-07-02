@@ -345,8 +345,8 @@ class ConnectionPoolManager extends EventEmitter {
 
 // Create singleton instance
 const connectionPool = new ConnectionPoolManager({
-    //maxConcurrentUsers: 20,
-    maxConcurrentUsers: 15,
+    maxConcurrentUsers: 20,
+    //maxConcurrentUsers: 15,
     maxConnectionsPerUser: 5,
     queueTimeout: 60000
 });
