@@ -1,0 +1,36 @@
+# robots.txt for ProMailHunter.com
+# This file tells search engine crawlers which pages or files they can or can't request from your site
+
+# Allow all search engines to crawl the site
+User-agent: *
+Allow: /
+
+# Specific directives for major search engines
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 1
+
+# Block bad bots (common spam/scraper bots)
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SEMrushBot
+Disallow: /
+
+# Allow search engines to access important resources
+Allow: /css/
+Allow: /js/
+Allow: /images/
+
+# Sitemap location (helps search engines find all your pages)
+Sitemap: https://promailhunter.com/sitemap.xml
+
+# Host directive (optional, but helps specify the preferred domain)
+Host: https://promailhunter.com
