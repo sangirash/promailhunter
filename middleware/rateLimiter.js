@@ -18,7 +18,7 @@ const limiter = rateLimit({
 
 const strictLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // limit each IP to 5 requests per windowMs for sensitive endpoints
+    max: 25, // limit each IP to 5 requests per windowMs for sensitive endpoints
     message: {
         error: 'Too many form submissions, please try again later.'
     },
