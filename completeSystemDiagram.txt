@@ -1,0 +1,187 @@
+graph TD
+    %% Entry Points
+    START([User Accesses Application]) --> FE[Frontend: the-tool.html]
+    FE --> JS[JavaScript: app.js]
+    
+    %% Server Entry
+    JS --> SERVER[Server: server.js]
+    SERVER --> HELMET[Security: helmet middleware]
+    HELMET --> CORS[CORS middleware]
+    CORS --> COMPRESS[Compression middleware]
+    COMPRESS --> RATE[Rate Limiter: rateLimiter.js]
+    RATE --> API[API Routes: routes/api.js]
+    
+    %% Connection Pool Management
+    API --> POOL_CHECK{Connection Pool Check}
+    POOL_CHECK --> POOL_FULL[Connection Pool Full?]
+    POOL_FULL -->|Yes| QUEUE[connectionPoolManager.js<br/>Queue Request]
+    POOL_FULL -->|No| POOL_ALLOC[Allocate Connection]
+    QUEUE --> WAIT[Return Queue Status]
+    POOL_ALLOC --> VALIDATION[Input Validation]
+    
+    %% Input Validation and Sanitization
+    VALIDATION --> VALIDATE_MW[middleware/validation.js<br/>validateContactForm]
+    VALIDATE_MW --> SANITIZE[utils/sanitizer.js<br/>sanitizeObject]
+    SANITIZE --> DOMAIN_VALIDATE[Domain Format Validation]
+    
+    %% Domain Validation Flow
+    DOMAIN_VALIDATE --> DOMAIN_EXTRACT[Extract Domain from Input]
+    DOMAIN_EXTRACT --> DOMAIN_DNS[DNS MX Record Check]
+    DOMAIN_DNS --> DOMAIN_CACHE{Domain Cache Hit?}
+    DOMAIN_CACHE -->|Yes| DOMAIN_CACHED[Return Cached Result]
+    DOMAIN_CACHE -->|No| DOMAIN_RESOLVE[dns.resolveMx]
+    DOMAIN_RESOLVE --> DOMAIN_STORE[Store in Cache]
+    DOMAIN_STORE --> EMAIL_GEN
+    DOMAIN_CACHED --> EMAIL_GEN
+    
+    %% Email Generation Flow
+    EMAIL_GEN[Email Generation Phase]
+    EMAIL_GEN -->     EG_INIT[utils/emailGenerator.js - processContact]
+    EG_INIT --> EG_EXTRACT[extractDomainFromCompanyName]
+    EG_EXTRACT --> EG_VALIDATE[getUserProvidedDomain]
+    EG_VALIDATE --> EG_USERNAME[generateUsernames]
+    EG_USERNAME --> EG_PATTERNS[Generate Personal Patterns Only]
+    
+    %% Username Pattern Generation
+    EG_PATTERNS --> PATTERN_BASIC[Basic Patterns: first.last, first_last, firstlast]
+    PATTERN_BASIC --> PATTERN_INITIAL[Initial Patterns: f.last, first.l]
+    PATTERN_INITIAL --> PATTERN_REVERSE[Reverse Patterns: last.first, last_first]
+    PATTERN_REVERSE --> PATTERN_NUMBERS[Number Suffixes: first1, john1]
+    PATTERN_NUMBERS --> EG_COMBINE[Combine with Domain]
+    EG_COMBINE --> EG_RESULT[Email List Generated]
+    
+    %% Email Verification Decision Point
+    EG_RESULT --> VERIFY_DECISION{Verification Type?}
+    
+    %% Simple Generation Only
+    VERIFY_DECISION -->|Generate Only| SAVE_FILE[Save to JSON File]
+    SAVE_FILE --> RETURN_RESULT[Return Results to Frontend]
+    
+    %% Full Verification Flow
+    VERIFY_DECISION -->|Generate & Verify| VERIFY_INIT[Start Verification Process]
+    VERIFY_INIT --> VERIFY_TYPE{Verification Method?}
+    
+    %% Parallel SMTP Verification
+    VERIFY_TYPE -->|Parallel SMTP| PARALLEL_SMTP[utils/parallelSmtpVerifier.js]
+    PARALLEL_SMTP --> WORKER_INIT[Initialize Worker Threads]
+    WORKER_INIT --> WORKER_POOL[Create Worker Pool]
+    WORKER_POOL --> BATCH_SPLIT[Split Emails into Batches]
+    BATCH_SPLIT --> WORKER_ASSIGN[Assign Batches to Workers]
+    
+    %% Worker Thread Processing
+    WORKER_ASSIGN --> WORKER_PROCESS[Worker Thread Processing]
+    WORKER_PROCESS --> WORKER_FORMAT[Email Format Check]
+    WORKER_FORMAT --> WORKER_MX[MX Record Check]
+    WORKER_MX --> WORKER_PATTERN[Pattern Analysis]
+    WORKER_PATTERN --> WORKER_SMTP{SMTP Check Needed?}
+    
+    %% SMTP Verification in Worker
+    WORKER_SMTP -->|Yes| SMTP_CONNECT[Connect to SMTP Server]
+    SMTP_CONNECT --> SMTP_HELO[HELO Command]
+    SMTP_HELO --> SMTP_MAIL[MAIL FROM Command]
+    SMTP_MAIL --> SMTP_RCPT[RCPT TO Command]
+    SMTP_RCPT --> SMTP_ANALYZE[Analyze SMTP Response]
+    SMTP_ANALYZE --> SMTP_RESULT[Determine Mailbox Status]
+    
+    %% Corporate Domain Handling
+    WORKER_SMTP -->|Corporate Domain| CORP_SKIP[Skip SMTP for Corporate]
+    CORP_SKIP --> PATTERN_MATCH[Use Pattern Matching]
+    PATTERN_MATCH --> CORP_RESULT[Corporate Domain Result]
+    
+    %% Results Aggregation
+    SMTP_RESULT --> WORKER_COMPLETE[Worker Complete]
+    CORP_RESULT --> WORKER_COMPLETE
+    WORKER_COMPLETE --> BATCH_COMPLETE[Batch Processing Complete]
+    BATCH_COMPLETE --> AGGREGATE[Aggregate All Worker Results]
+    
+    %% Enhanced Verification Path
+    VERIFY_TYPE -->|Enhanced Verification| ENHANCED_VERIFY[utils/enhancedEmailVerifier.js]
+    ENHANCED_VERIFY --> ENHANCED_FORMAT[validateEmailFormat]
+    ENHANCED_FORMAT --> ENHANCED_MX[checkMXRecord]
+    ENHANCED_MX --> ENHANCED_PATTERN[checkAgainstKnownPatterns]
+    ENHANCED_PATTERN --> ENHANCED_SMTP[checkSMTPMailboxExists]
+    ENHANCED_SMTP --> ENHANCED_ANALYZE[analyzeResultsEnhanced]
+    ENHANCED_ANALYZE --> ENHANCED_RESULT[Enhanced Verification Result]
+    
+    %% Python Validator Integration
+    ENHANCED_VERIFY --> PYTHON_CHECK{Python Validator Available?}
+    PYTHON_CHECK -->|Yes| PYTHON_VALIDATE[runPythonValidator]
+    PYTHON_VALIDATE --> PYTHON_RESULT[Python Validation Result]
+    PYTHON_CHECK -->|No| NODEJS_VALIDATE[Node.js Validation Only]
+    NODEJS_VALIDATE --> ENHANCED_PATTERN
+    
+    %% Result Processing
+    AGGREGATE --> PROCESS_RESULTS[Process Verification Results]
+    ENHANCED_RESULT --> PROCESS_RESULTS
+    PYTHON_RESULT --> PROCESS_RESULTS
+    
+    PROCESS_RESULTS --> RESULT_ANALYSIS[processEmailProbabilities]
+    RESULT_ANALYSIS --> PROBABILITY_CALC[Calculate Email Probabilities]
+    PROBABILITY_CALC --> TOP_THREE[Select Top 3 Results]
+    TOP_THREE --> CONFIDENCE[Assign Confidence Scores]
+    
+    %% Performance Monitoring
+    CONFIDENCE --> PERF_MONITOR[utils/performanceMonitor.js<br/>Record Metrics]
+    PERF_MONITOR --> ANALYTICS[utils/emailPatternAnalytics.js<br/>Pattern Learning]
+    ANALYTICS --> PATTERN_LEARN[Learn Successful Patterns]
+    
+    %% Final Response
+    PATTERN_LEARN --> POOL_RELEASE[Release Connection Pool]
+    POOL_RELEASE --> JSON_RESPONSE[Generate JSON Response]
+    JSON_RESPONSE --> FRONTEND_UPDATE[Update Frontend Display]
+    
+    %% Frontend Display
+    FRONTEND_UPDATE --> DISPLAY_TABLE[Display Email Results Table]
+    DISPLAY_TABLE --> COPY_BUTTONS[Add Copy Functionality]
+    COPY_BUTTONS --> USER_INTERACTION[User Interaction Complete]
+    
+    %% Error Handling Paths
+    DOMAIN_RESOLVE -->|Error| DOMAIN_ERROR[Domain Validation Error]
+    SMTP_CONNECT -->|Error| SMTP_ERROR[SMTP Connection Error]
+    WORKER_PROCESS -->|Error| WORKER_ERROR[Worker Processing Error]
+    
+    DOMAIN_ERROR --> ERROR_RESPONSE[Generate Error Response]
+    SMTP_ERROR --> FALLBACK[Fallback to Pattern Matching]
+    WORKER_ERROR --> RETRY_LOGIC[Retry or Skip Email]
+    
+    FALLBACK --> PROCESS_RESULTS
+    RETRY_LOGIC --> WORKER_COMPLETE
+    ERROR_RESPONSE --> FRONTEND_UPDATE
+    
+    %% Utility Functions
+    subgraph UTILS[Utility Functions]
+        SANITIZER[utils/sanitizer.js - Input Sanitization]
+        CONFIG[config/performance.js - System Configuration]
+        SECURITY[config/security.js - Security Settings]
+        VERIFICATION_CONFIG[config/verificationConfig.js - Verification Settings]
+    end
+    
+    %% Background Processes
+    subgraph BACKGROUND[Background Processes]
+        CLEANUP[Connection Pool Cleanup]
+        CACHE_MANAGE[Domain Cache Management]
+        METRIC_COLLECT[Performance Metrics Collection]
+        PATTERN_UPDATE[Pattern Analytics Updates]
+    end
+    
+    %% File Operations
+    subgraph FILES[File Operations]
+        SAVE_EMAILS[Save Generated Emails]
+        SAVE_VERIFICATION[Save Verification Results]
+        EXPORT_ANALYTICS[Export Analytics Data]
+    end
+    
+    %% Styling
+    classDef entryPoint fill:#e1f5fe,stroke:#01579b,stroke-width:3px
+    classDef processing fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef verification fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef storage fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    classDef error fill:#ffebee,stroke:#c62828,stroke-width:2px
+    classDef decision fill:#fff8e1,stroke:#f57f17,stroke-width:2px
+    
+    class START,FE,JS entryPoint
+    class EMAIL_GEN,EG_INIT,PARALLEL_SMTP,ENHANCED_VERIFY processing
+    class VERIFY_INIT,SMTP_CONNECT,WORKER_PROCESS verification
+    class SAVE_FILE,JSON_RESPONSE,FILES storage
+    class DOMAIN_ERROR,SMTP_ERROR,WORKER_ERROR error
+    class VERIFY_DECISION,VERIFY_TYPE,WORKER_SMTP decision

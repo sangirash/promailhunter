@@ -1,0 +1,366 @@
+graph TD
+    subgraph SERVER_LAYER[🖥️ SERVER LAYER]
+        SERVER_JS[server.js]
+        API_ROUTES[routes/api.js]
+        MIDDLEWARE[middleware/]
+        
+        SERVER_JS --> API_ROUTES
+        SERVER_JS --> RATE_MW[rateLimiter.js]
+        SERVER_JS --> AUTH_MW[auth.js]
+        SERVER_JS --> VALIDATION_MW[validation.js]
+    end
+    
+    subgraph API_ENDPOINTS[🔌 API ENDPOINTS & FUNCTION CALLS]
+        %% Main API Functions
+        CONTACT_EP[POST /api/contact - validateContactForm]
+        GENERATE_EP[POST /api/generate-emails - validateContactForm]
+        VERIFY_EP[POST /api/generate-and-verify - strictLimiter]
+        DOMAIN_EP[POST /api/validate-domain - limiter]
+        
+        %% Function Call Details
+        CONTACT_EP --> SANITIZE_CALL[sanitizer.sanitizeObject]
+        GENERATE_EP --> SANITIZE_CALL
+        VERIFY_EP --> SANITIZE_CALL
+        
+        SANITIZE_CALL --> EMAIL_GEN_CALL[emailGenerator.processContact]
+        EMAIL_GEN_CALL --> VERIFY_CALL[parallelSmtpVerifier.verifyEmails]
+        
+        DOMAIN_EP --> DOMAIN_VALIDATE_CALL[dns.resolveMx]
+    end
+    
+    subgraph EMAIL_GENERATOR[📧 EMAIL GENERATOR - utils/emailGenerator.js]
+        EG_PROCESS[processContact]
+        EG_DATA[generateEmailData]
+        EG_EMAILS[generateEmails]
+        EG_USERNAMES[generateUsernames]
+        EG_DOMAIN[getUserProvidedDomain]
+        EG_EXTRACT[extractDomainFromCompanyName]
+        EG_VALIDATE[validateDomain]
+        EG_SAVE[saveToFile]
+        
+        %% Function call hierarchy
+        EG_PROCESS --> EG_DATA
+        EG_DATA --> EG_EMAILS
+        EG_EMAILS --> EG_USERNAMES
+        EG_EMAILS --> EG_DOMAIN
+        EG_DOMAIN --> EG_EXTRACT
+        EG_DOMAIN --> EG_VALIDATE
+        EG_PROCESS --> EG_SAVE
+        
+        %% External calls from emailGenerator
+        EG_VALIDATE --> DNS_MX[dns.resolveMx]
+        EG_VALIDATE --> DNS_A[dns.resolve domain A]
+        EG_SAVE --> FS_MKDIR[fs.mkdir]
+        EG_SAVE --> FS_WRITE[fs.writeFile]
+    end
+    
+    subgraph PARALLEL_SMTP[⚡ PARALLEL SMTP VERIFIER - utils/parallelSmtpVerifier.js]
+        PS_VERIFY[verifyEmails]
+        PS_INIT[initializeWorkers]
+        PS_CREATE[createWorker]
+        PS_BATCH[processBatch]
+        PS_ASSIGN[assignTaskToWorker]
+        PS_COMPLETE[handleTaskComplete]
+        PS_PROGRESS[handleTaskProgress]
+        PS_ERROR[handleTaskError]
+        PS_STATUS[getStatus]
+        PS_SHUTDOWN[shutdown]
+        
+        %% Function hierarchy
+        PS_VERIFY --> PS_BATCH
+        PS_BATCH --> PS_ASSIGN
+        PS_ASSIGN --> PS_PROGRESS
+        PS_ASSIGN --> PS_COMPLETE
+        PS_ASSIGN --> PS_ERROR
+        
+        %% Worker thread communication
+        PS_CREATE --> WORKER_CODE[Worker Thread Code]
+        WORKER_CODE --> WORKER_VERIFY[verifyEmailSMTP]
+        WORKER_VERIFY --> WORKER_MX[DNS MX Check]
+        WORKER_VERIFY --> WORKER_SMTP[checkSMTPMailbox]
+        WORKER_SMTP --> NET_SOCKET[net.Socket]
+    end
+    
+    subgraph ENHANCED_VERIFIER[🔬 ENHANCED VERIFIER - utils/enhancedEmailVerifier.js]
+        EV_VERIFY[verifyEmail]
+        EV_DEEP[deepVerifyEmail]
+        EV_FORMAT[validateEmailFormat]
+        EV_MX[checkMXRecord]
+        EV_PATTERN[checkAgainstKnownPatterns]
+        EV_SMTP[checkSMTPMailboxExists]
+        EV_PYTHON[runPythonValidator]
+        EV_ANALYZE[analyzeResultsEnhanced]
+        EV_BATCH[verifyEmailBatch]
+        EV_SAVE[saveResults]
+        EV_LEARN[learnPattern]
+        EV_DETECT[detectBusinessPattern]
+        
+        %% Function hierarchy
+        EV_VERIFY --> EV_DEEP
+        EV_DEEP --> EV_FORMAT
+        EV_DEEP --> EV_MX
+        EV_DEEP --> EV_PATTERN
+        EV_DEEP --> EV_SMTP
+        EV_DEEP --> EV_PYTHON
+        EV_DEEP --> EV_ANALYZE
+        EV_BATCH --> EV_VERIFY
+        EV_PATTERN --> EV_LEARN
+        EV_PATTERN --> EV_DETECT
+        
+        %% External calls
+        EV_MX --> DNS_MX2[dns.resolveMx]
+        EV_SMTP --> NET_SOCKET2[net.Socket]
+        EV_PYTHON --> SPAWN[spawn python3]
+        EV_SAVE --> FS_MKDIR2[fs.mkdir]
+        EV_SAVE --> FS_WRITE2[fs.writeFile]
+    end
+    
+    subgraph CONNECTION_POOL[🏊 CONNECTION POOL - utils/connectionPoolManager.js]
+        CP_REQUEST[requestConnection]
+        CP_ALLOCATE[allocateConnection]
+        CP_QUEUE[queueRequest]
+        CP_RELEASE[releaseConnection]
+        CP_PROCESS[processQueue]
+        CP_STATUS[getPoolStatus]
+        CP_CLEANUP[cleanupStaleConnections]
+        CP_ESTIMATE[estimateWaitTime]
+        
+        %% Function hierarchy
+        CP_REQUEST --> CP_ALLOCATE
+        CP_REQUEST --> CP_QUEUE
+        CP_QUEUE --> CP_PROCESS
+        CP_RELEASE --> CP_PROCESS
+        CP_STATUS --> CP_ESTIMATE
+    end
+    
+    subgraph UTILITIES[🛠️ UTILITIES]
+        SANITIZER[utils/sanitizer.js]
+        PERF_MONITOR[utils/performanceMonitor.js]
+        ANALYTICS[utils/emailPatternAnalytics.js]
+        CONFIG[config/]
+        
+        %% Sanitizer functions
+        SANITIZER --> SANITIZE_TEXT[sanitizeText]
+        SANITIZER --> SANITIZE_OBJ[sanitizeObject]
+        SANITIZER --> DOMPURIFY[DOMPurify.sanitize]
+        
+        %% Performance monitor functions
+        PERF_MONITOR --> RECORD_GEN[recordEmailGeneration]
+        PERF_MONITOR --> RECORD_VERIFY[recordEmailVerification]
+        PERF_MONITOR --> RECORD_DOMAIN[recordDomainValidation]
+        PERF_MONITOR --> RECORD_SMTP[recordSMTPCheck]
+        PERF_MONITOR --> RECORD_API[recordAPIRequest]
+        PERF_MONITOR --> GET_SUMMARY[getSummary]
+        PERF_MONITOR --> GET_DETAILED[getDetailedReport]
+        
+        %% Analytics functions
+        ANALYTICS --> ANALYZE_PATTERN[analyzeEmailPattern]
+        ANALYTICS --> RECORD_SUCCESS[recordSuccessfulVerification]
+        ANALYTICS --> GET_COMMON[getMostCommonPatterns]
+        ANALYTICS --> DOMAIN_REPORT[getDomainReport]
+        ANALYTICS --> GLOBAL_SUMMARY[getGlobalSummary]
+        ANALYTICS --> EXPORT_DATA[exportAnalytics]
+    end
+    
+    subgraph FRONTEND[🖥️ FRONTEND LAYER]
+        HTML_TOOL[public/the-tool.html]
+        APP_JS[public/js/app.js]
+        CSS_STYLES[public/css/styles.css]
+        
+        %% JavaScript classes and functions
+        APP_JS --> PMH_CLASS[ProMailHunterApp class]
+        PMH_CLASS --> INIT[init]
+        PMH_CLASS --> VALIDATE_FORM[validateForm]
+        PMH_CLASS --> HANDLE_VERIFY[handleGenerateAndVerify]
+        PMH_CLASS --> UPDATE_BUTTONS[updateButtonStates]
+        PMH_CLASS --> DOMAIN_VALIDATION[handleDomainInputChange]
+        PMH_CLASS --> DISPLAY_RESULTS[displayEmailResults]
+        PMH_CLASS --> SHOW_PROGRESS[showVerificationProgress]
+        PMH_CLASS --> SHOW_QUEUE[showQueueStatus]
+        PMH_CLASS --> CHECK_POOL[checkPoolStatus]
+        
+        %% Frontend API calls
+        HANDLE_VERIFY --> FETCH_VERIFY[fetch api/generate-and-verify]
+        DOMAIN_VALIDATION --> FETCH_DOMAIN[fetch api/validate-domain]
+        CHECK_POOL --> FETCH_POOL[fetch api/pool-status]
+        
+        %% DOM manipulation functions
+        DISPLAY_RESULTS --> CREATE_TABLE[Create results table]
+        DISPLAY_RESULTS --> ADD_COPY[Add copy buttons]
+        SHOW_PROGRESS --> UPDATE_SPINNER[Update progress spinner]
+        SHOW_QUEUE --> UPDATE_QUEUE[Update queue display]
+    end
+    
+    subgraph MIDDLEWARE_DETAILS[🛡️ MIDDLEWARE DETAILS]
+        %% Rate Limiter
+        RATE_LIMITER[middleware/rateLimiter.js]
+        RATE_LIMITER --> LIMITER[limiter 100 req/15min]
+        RATE_LIMITER --> STRICT_LIMITER[strictLimiter 25 req/15min]
+        RATE_LIMITER --> VERIFY_LIMITER[verificationLimiter 50 req/15min]
+        
+        %% Validation Middleware
+        VALIDATION[middleware/validation.js]
+        VALIDATION --> VALIDATE_CONTACT[validateContactForm]
+        VALIDATION --> VALIDATE_EMAIL[validateEmailVerification]
+        VALIDATION --> VALIDATE_BATCH[validateBatchEmailVerification]
+        VALIDATION --> VALIDATE_DOMAIN_INPUT[validateDomainInput]
+        VALIDATION --> HANDLE_ERRORS[handleValidationErrors]
+        VALIDATION --> VALIDATE_FORMAT[validateDomainFormat]
+        
+        %% Security Middleware
+        SECURITY[middleware/auth.js]
+        SECURITY --> AUTH_CHECK[Basic auth placeholder]
+    end
+    
+    subgraph CONFIG_LAYER[⚙️ CONFIGURATION LAYER]
+        %% Performance Configuration
+        PERF_CONFIG[config/performance.js]
+        PERF_CONFIG --> CONNECTION_POOL_CONFIG[connectionPool settings]
+        PERF_CONFIG --> PARALLEL_CONFIG[parallelProcessing settings]
+        PERF_CONFIG --> EMAIL_VERIFY_CONFIG[emailVerification settings]
+        PERF_CONFIG --> CACHE_CONFIG[cache settings]
+        PERF_CONFIG --> OPTIMIZATION[optimizationStrategies]
+        
+        %% Security Configuration
+        SEC_CONFIG[config/security.js]
+        SEC_CONFIG --> HELMET_CONFIG[helmetConfig]
+        SEC_CONFIG --> CORS_CONFIG[corsConfig]
+        
+        %% Verification Configuration
+        VERIFY_CONFIG[config/verificationConfig.js]
+        VERIFY_CONFIG --> STRATEGIES[verificationStrategies]
+        VERIFY_CONFIG --> DOMAIN_SETTINGS[domainSettings]
+        VERIFY_CONFIG --> TIMEOUTS[timeouts]
+        VERIFY_CONFIG --> PATTERN_CONFIDENCE[patternConfidence]
+    end
+    
+    %% API ENDPOINT MAPPINGS
+    subgraph API_MAPPINGS[🔗 API ENDPOINT MAPPINGS]
+        %% Contact Form Endpoint
+        API_CONTACT[POST /api/contact] --> CONTACT_FLOW[Contact Processing Flow]
+        CONTACT_FLOW --> STRICT_LIMITER
+        CONTACT_FLOW --> VALIDATE_CONTACT
+        CONTACT_FLOW --> HANDLE_ERRORS
+        CONTACT_FLOW --> SANITIZE_CALL
+        CONTACT_FLOW --> EMAIL_GEN_CALL
+        
+        %% Email Generation Endpoint
+        API_GENERATE[POST /api/generate-emails] --> GENERATE_FLOW[Generation Processing Flow]
+        GENERATE_FLOW --> STRICT_LIMITER
+        GENERATE_FLOW --> VALIDATE_CONTACT
+        GENERATE_FLOW --> HANDLE_ERRORS
+        GENERATE_FLOW --> SANITIZE_CALL
+        GENERATE_FLOW --> EMAIL_GEN_CALL
+        
+        %% Generate and Verify Endpoint
+        API_GEN_VERIFY[POST /api/generate-and-verify] --> VERIFY_FLOW[Verification Processing Flow]
+        VERIFY_FLOW --> STRICT_LIMITER
+        VERIFY_FLOW --> VALIDATE_CONTACT
+        VERIFY_FLOW --> HANDLE_ERRORS
+        VERIFY_FLOW --> CP_REQUEST
+        VERIFY_FLOW --> SANITIZE_CALL
+        VERIFY_FLOW --> EMAIL_GEN_CALL
+        VERIFY_FLOW --> PS_VERIFY
+        VERIFY_FLOW --> PROCESS_RESULTS[processEmailProbabilities]
+        VERIFY_FLOW --> CP_RELEASE
+        
+        %% Domain Validation Endpoint
+        API_DOMAIN[POST /api/validate-domain] --> DOMAIN_FLOW[Domain Validation Flow]
+        DOMAIN_FLOW --> LIMITER
+        DOMAIN_FLOW --> SANITIZE_CALL
+        DOMAIN_FLOW --> DOMAIN_VALIDATE_CALL
+        
+        %% Other Endpoints
+        API_HEALTH[GET /api/health] --> HEALTH_CHECK[Health Check Response]
+        API_STATUS[GET /api/verifier-status] --> STATUS_CHECK[Verifier Status Response]
+        API_POOL_STATUS[GET /api/pool-status] --> CP_STATUS
+        API_PERFORMANCE[GET /api/performance] --> GET_SUMMARY
+    end
+    
+    %% EXTERNAL DEPENDENCIES
+    subgraph EXTERNAL[🌐 EXTERNAL DEPENDENCIES]
+        %% Node.js Built-in Modules
+        DNS_MODULE[dns.promises]
+        NET_MODULE[net]
+        FS_MODULE[fs.promises]
+        PATH_MODULE[path]
+        OS_MODULE[os]
+        WORKER_MODULE[worker_threads]
+        CHILD_PROCESS[child_process]
+        
+        %% NPM Packages
+        EXPRESS[express]
+        HELMET[helmet]
+        CORS[cors]
+        EXPRESS_VALIDATOR[express-validator]
+        EXPRESS_RATE_LIMIT[express-rate-limit]
+        DOMPURIFY_PKG[dompurify]
+        JSDOM[jsdom]
+        DOTENV[dotenv]
+        AXIOS[axios]
+        MORGAN[morgan]
+        COMPRESSION[compression]
+        NODEMAILER[nodemailer]
+        
+        %% Python Integration
+        PYTHON3[python3 subprocess]
+        EMAIL_VALIDATOR[email-validator package]
+    end
+    
+    %% CONNECTIONS BETWEEN LAYERS
+    API_ROUTES --> EMAIL_GENERATOR
+    API_ROUTES --> PARALLEL_SMTP
+    API_ROUTES --> ENHANCED_VERIFIER
+    API_ROUTES --> CONNECTION_POOL
+    API_ROUTES --> UTILITIES
+    
+    EMAIL_GENERATOR --> DNS_MODULE
+    EMAIL_GENERATOR --> FS_MODULE
+    EMAIL_GENERATOR --> PATH_MODULE
+    
+    PARALLEL_SMTP --> WORKER_MODULE
+    PARALLEL_SMTP --> NET_MODULE
+    PARALLEL_SMTP --> OS_MODULE
+    
+    ENHANCED_VERIFIER --> DNS_MODULE
+    ENHANCED_VERIFIER --> NET_MODULE
+    ENHANCED_VERIFIER --> CHILD_PROCESS
+    ENHANCED_VERIFIER --> PYTHON3
+    
+    SANITIZER --> DOMPURIFY_PKG
+    SANITIZER --> JSDOM
+    
+    FRONTEND --> API_MAPPINGS
+    
+    %% ERROR HANDLING FLOW
+    subgraph ERROR_HANDLING[❌ ERROR HANDLING FLOW]
+        TRY_CATCH[Try-Catch Blocks]
+        ERROR_MIDDLEWARE[Express Error Middleware]
+        GRACEFUL_SHUTDOWN[Graceful Shutdown Handler]
+        WORKER_ERROR_HANDLER[Worker Error Handler]
+        TIMEOUT_HANDLER[Timeout Handler]
+        VALIDATION_ERROR[Validation Error Handler]
+        
+        TRY_CATCH --> ERROR_MIDDLEWARE
+        WORKER_ERROR_HANDLER --> PS_ERROR
+        TIMEOUT_HANDLER --> PS_ERROR
+        VALIDATION_ERROR --> HANDLE_ERRORS
+        GRACEFUL_SHUTDOWN --> PS_SHUTDOWN
+    end
+    
+    %% STYLING
+    classDef serverLayer fill:#e1f5fe,stroke:#01579b,stroke-width:3px
+    classDef apiLayer fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef utilityLayer fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef frontendLayer fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    classDef configLayer fill:#fff8e1,stroke:#f57f17,stroke-width:2px
+    classDef externalLayer fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    classDef errorLayer fill:#ffebee,stroke:#c62828,stroke-width:2px
+    
+    class SERVER_JS,API_ROUTES,MIDDLEWARE serverLayer
+    class CONTACT_EP,GENERATE_EP,VERIFY_EP,DOMAIN_EP apiLayer
+    class EMAIL_GENERATOR,PARALLEL_SMTP,ENHANCED_VERIFIER,CONNECTION_POOL,UTILITIES utilityLayer
+    class FRONTEND,HTML_TOOL,APP_JS,PMH_CLASS frontendLayer
+    class CONFIG_LAYER,PERF_CONFIG,SEC_CONFIG,VERIFY_CONFIG configLayer
+    class EXTERNAL,DNS_MODULE,NET_MODULE,PYTHON3 externalLayer
+    class ERROR_HANDLING,TRY_CATCH,ERROR_MIDDLEWARE errorLayer

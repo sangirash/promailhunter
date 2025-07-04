@@ -1,0 +1,192 @@
+graph TD
+    subgraph DOMAIN_WORKFLOW[🌐 DOMAIN VALIDATION WORKFLOW]
+        D_START[Domain Input from Frontend] --> D_EXTRACT[utils/emailGenerator.js - extractDomainFromCompanyName]
+        D_EXTRACT --> D_FORMATS{Input Format Detection}
+        
+        D_FORMATS -->|domain.com format| D_DIRECT[Direct Domain Format]
+        D_FORMATS -->|email format| D_EMAIL[Email Format - Extract Domain]
+        D_FORMATS -->|URL format| D_URL[URL Format - Parse Domain]
+        D_FORMATS -->|www format| D_WWW[WWW Format - Clean Domain]
+        
+        D_DIRECT --> D_VALIDATE[validateDomain]
+        D_EMAIL --> D_VALIDATE
+        D_URL --> D_VALIDATE
+        D_WWW --> D_VALIDATE
+        
+        D_VALIDATE --> D_CACHE_CHECK{Domain Cache Check}
+        D_CACHE_CHECK -->|Hit| D_CACHE_RETURN[Return Cached Result]
+        D_CACHE_CHECK -->|Miss| D_DNS_CHECK[dns.resolveMx domain]
+        
+        D_DNS_CHECK --> D_MX_FOUND{MX Records Found?}
+        D_MX_FOUND -->|Yes| D_VALID[Domain Valid - Cache Result]
+        D_MX_FOUND -->|No| D_A_CHECK[dns.resolve domain A]
+        
+        D_A_CHECK --> D_A_FOUND{A Records Found?}
+        D_A_FOUND -->|Yes| D_EXISTS[Domain Exists - May Not Accept Email]
+        D_A_FOUND -->|No| D_INVALID[Domain Invalid]
+        
+        D_VALID --> D_RESULT[Return Validation Result]
+        D_EXISTS --> D_RESULT
+        D_INVALID --> D_RESULT
+        D_CACHE_RETURN --> D_RESULT
+    end
+    
+    subgraph EMAIL_GEN_WORKFLOW[📧 EMAIL GENERATION WORKFLOW]
+        E_START[Validated Domain + Person Names] --> E_INIT[utils/emailGenerator.js - generateUsernames]
+        
+        E_INIT --> E_CLEAN[Clean and Normalize Names]
+        E_CLEAN --> E_EXTRACT_PARTS[Extract First/Last Name + Initials]
+        E_EXTRACT_PARTS --> E_PATTERNS[Generate Username Patterns]
+        
+        E_PATTERNS --> E_BASIC[Basic Combinations]
+        E_BASIC --> E_FIRST_LAST[first.last - john.doe]
+        E_BASIC --> E_FIRST_UNDER[first_last - john_doe]
+        E_BASIC --> E_FIRST_DASH[first-last - john-doe]
+        E_BASIC --> E_COMBINED[firstlast - johndoe]
+        
+        E_PATTERNS --> E_INITIAL[Initial Combinations]
+        E_INITIAL --> E_F_LAST[f.last - j.doe]
+        E_INITIAL --> E_F_UNDER[f_last - j_doe]
+        E_INITIAL --> E_FIRST_L[first.l - john.d]
+        E_INITIAL --> E_F_COMBINED[flast - jdoe]
+        
+        E_PATTERNS --> E_REVERSE[Reverse Combinations]
+        E_REVERSE --> E_LAST_FIRST[last.first - doe.john]
+        E_REVERSE --> E_LAST_UNDER[last_first - doe_john]
+        E_REVERSE --> E_LAST_F[last.f - doe.j]
+        
+        E_PATTERNS --> E_SINGLE[Single Names]
+        E_SINGLE --> E_FNAME[firstname - john]
+        E_SINGLE --> E_LNAME[lastname - doe]
+        
+        E_PATTERNS --> E_NUMBERS[Number Suffixes]
+        E_NUMBERS --> E_NUM1[pattern+1 - john.doe1]
+        E_NUMBERS --> E_NUM01[pattern+01 - john01]
+        E_NUMBERS --> E_NUM123[pattern+123 - john123]
+        
+        E_FIRST_LAST --> E_FILTER[Filter Invalid Patterns]
+        E_FIRST_UNDER --> E_FILTER
+        E_FIRST_DASH --> E_FILTER
+        E_COMBINED --> E_FILTER
+        E_F_LAST --> E_FILTER
+        E_F_UNDER --> E_FILTER
+        E_FIRST_L --> E_FILTER
+        E_F_COMBINED --> E_FILTER
+        E_LAST_FIRST --> E_FILTER
+        E_LAST_UNDER --> E_FILTER
+        E_LAST_F --> E_FILTER
+        E_FNAME --> E_FILTER
+        E_LNAME --> E_FILTER
+        E_NUM1 --> E_FILTER
+        E_NUM01 --> E_FILTER
+        E_NUM123 --> E_FILTER
+        
+        E_FILTER --> E_VALIDATE_RULES[Apply Validation Rules]
+        E_VALIDATE_RULES --> E_LENGTH[Length Check: 2-64 chars]
+        E_VALIDATE_RULES --> E_NO_DOTS[No leading/trailing dots]
+        E_VALIDATE_RULES --> E_NO_NUMBERS[No leading numbers]
+        
+        E_LENGTH --> E_COMBINE[Combine with Domain]
+        E_NO_DOTS --> E_COMBINE
+        E_NO_NUMBERS --> E_COMBINE
+        
+        E_COMBINE --> E_FINAL[Final Email List]
+        E_FINAL --> E_SORT[Sort and Deduplicate]
+        E_SORT --> E_GEN_RESULT[Return Generated Emails]
+    end
+    
+    subgraph VERIFY_WORKFLOW[✅ EMAIL VERIFICATION WORKFLOW]
+        V_START[Email List for Verification] --> V_STRATEGY{Choose Verification Strategy}
+        
+        V_STRATEGY -->|Small Set ≤10| V_ENHANCED[Enhanced Sequential Verification]
+        V_STRATEGY -->|Medium Set 11-50| V_PARALLEL[Parallel Worker Verification]
+        V_STRATEGY -->|Large Set >50| V_FAST[Fast Parallel Verification]
+        
+        %% Enhanced Sequential Path
+        V_ENHANCED --> V_ENH_INIT[utils/enhancedEmailVerifier.js - verifyEmail]
+        V_ENH_INIT --> V_ENH_FORMAT[validateEmailFormat]
+        V_ENH_FORMAT --> V_ENH_MX[checkMXRecord]
+        V_ENH_MX --> V_ENH_PATTERN[checkAgainstKnownPatterns]
+        V_ENH_PATTERN --> V_ENH_DEEP{Deep SMTP Check?}
+        
+        V_ENH_DEEP -->|Yes| V_ENH_SMTP[checkSMTPMailboxExists]
+        V_ENH_DEEP -->|Corporate| V_ENH_CORPORATE[Skip SMTP - Use Pattern]
+        
+        V_ENH_SMTP --> V_SMTP_CONNECT[SMTP Connection to MX Server]
+        V_SMTP_CONNECT --> V_SMTP_HANDSHAKE[SMTP Handshake Process]
+        V_SMTP_HANDSHAKE --> V_SMTP_HELO[HELO verify.local]
+        V_SMTP_HELO --> V_SMTP_MAIL[MAIL FROM: verify@verify.local]
+        V_SMTP_MAIL --> V_SMTP_RCPT[RCPT TO: target_email]
+        V_SMTP_RCPT --> V_SMTP_RESPONSE[Analyze SMTP Response]
+        
+        V_SMTP_RESPONSE --> V_SMTP_250{Response 250/251?}
+        V_SMTP_250 -->|Yes| V_MAILBOX_EXISTS[Mailbox Exists ✓]
+        V_SMTP_250 -->|550 User Unknown| V_MAILBOX_NOT_EXISTS[Mailbox Does Not Exist ✗]
+        V_SMTP_250 -->|Other| V_MAILBOX_UNKNOWN[Mailbox Status Unknown ?]
+        
+        %% Parallel Worker Path
+        V_PARALLEL --> V_PAR_INIT[utils/parallelSmtpVerifier.js - verifyEmails]
+        V_PAR_INIT --> V_PAR_SPLIT[Split into Batches]
+        V_PAR_SPLIT --> V_PAR_WORKERS[Create Worker Threads]
+        V_PAR_WORKERS --> V_PAR_ASSIGN[Assign Batches to Workers]
+        
+        V_PAR_ASSIGN --> V_WORKER_1[Worker Thread 1]
+        V_PAR_ASSIGN --> V_WORKER_2[Worker Thread 2]
+        V_PAR_ASSIGN --> V_WORKER_N[Worker Thread N]
+        
+        V_WORKER_1 --> V_WORKER_PROCESS[Worker: Process Emails]
+        V_WORKER_2 --> V_WORKER_PROCESS
+        V_WORKER_N --> V_WORKER_PROCESS
+        
+        V_WORKER_PROCESS --> V_WORKER_FORMAT[Format Check]
+        V_WORKER_FORMAT --> V_WORKER_MX[MX Check]
+        V_WORKER_MX --> V_WORKER_PATTERN[Pattern Analysis]
+        V_WORKER_PATTERN --> V_WORKER_SMTP[SMTP Verification]
+        V_WORKER_SMTP --> V_WORKER_RESULT[Worker Result]
+        
+        %% Fast Parallel Path
+        V_FAST --> V_FAST_INIT[utils/parallelEmailVerifier.js - verifyEmails]
+        V_FAST_INIT --> V_FAST_BATCH[Large Batch Processing]
+        V_FAST_BATCH --> V_FAST_BASIC[Basic Verification Only]
+        V_FAST_BASIC --> V_FAST_RESULT[Fast Results]
+        
+        %% Results Aggregation
+        V_MAILBOX_EXISTS --> V_ANALYZE[Analyze All Results]
+        V_MAILBOX_NOT_EXISTS --> V_ANALYZE
+        V_MAILBOX_UNKNOWN --> V_ANALYZE
+        V_ENH_CORPORATE --> V_ANALYZE
+        V_WORKER_RESULT --> V_AGGREGATE[Aggregate Worker Results]
+        V_AGGREGATE --> V_ANALYZE
+        V_FAST_RESULT --> V_ANALYZE
+        
+        V_ANALYZE --> V_PROBABILITY[Calculate Probabilities]
+        V_PROBABILITY --> V_CONFIDENCE[Assign Confidence Scores]
+        V_CONFIDENCE --> V_RANK[Rank by Likelihood]
+        V_RANK --> V_TOP3[Select Top 3 Results]
+        V_TOP3 --> V_FINAL_RESULT[Return Verification Results]
+        
+        %% Python Integration
+        V_ENH_INIT --> V_PYTHON_CHECK{Python Validator Available?}
+        V_PYTHON_CHECK -->|Yes| V_PYTHON[runPythonValidator]
+        V_PYTHON --> V_PYTHON_RESULT[Python Enhanced Result]
+        V_PYTHON_RESULT --> V_ANALYZE
+        V_PYTHON_CHECK -->|No| V_ENH_MX
+    end
+    
+    %% Cross-workflow connections
+    D_RESULT --> EMAIL_GEN_WORKFLOW
+    E_GEN_RESULT --> VERIFY_WORKFLOW
+    V_FINAL_RESULT --> RESPONSE[Generate API Response]
+    
+    %% Styling
+    classDef domainStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef emailStyle fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    classDef verifyStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef processStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef resultStyle fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+    
+    class D_START,D_EXTRACT,D_VALIDATE,D_DNS_CHECK domainStyle
+    class E_START,E_INIT,E_PATTERNS,E_COMBINE emailStyle
+    class V_START,V_STRATEGY,V_ENHANCED,V_PARALLEL verifyStyle
+    class V_SMTP_CONNECT,V_WORKER_PROCESS,V_ANALYZE processStyle
+    class V_FINAL_RESULT,D_RESULT,E_GEN_RESULT resultStyle
